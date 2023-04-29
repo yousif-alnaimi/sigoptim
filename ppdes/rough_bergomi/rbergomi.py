@@ -13,7 +13,7 @@ class rBergomi(object):
         # Basic assignments
         self.T = T # Maturity
         self.n = n # Granularity (steps per year)
-        self.dt = 1.0/self.n # Step size
+        self.dt = T/self.n # Step size
         self.s = int(self.n * self.T) # Steps
         self.t = np.linspace(0, self.T, 1 + self.s)[np.newaxis,:] # Time grid
         self.a = a # Alpha
@@ -186,10 +186,12 @@ class rBergomi_sigkernel_pricer(object):
     """
     Class for conditional sigkernel pricer under rough Bergomi.
     """
-    def __init__(self, n_increments, mid_price, m, n, T, a, xi, eta, rho, sigma_t, sigma_x, sigma_sig, dyadic_order, max_batch, device):
+    def __init__(self, n_increments, x_mean, x_var, m, n, T, a, xi, eta, rho, sigma_t, sigma_x, sigma_sig, dyadic_order, max_batch, device):
         
         self.n_increments = n_increments
-        self.mid_price    = mid_price
+        
+        self.x_mean = x_mean
+        self.x_var  = x_var
         
         self.m = m # collocation points interior
         self.n = n # collocation points boundary
@@ -222,8 +224,8 @@ class rBergomi_sigkernel_pricer(object):
         self.ts              = np.concatenate([self.ts_interior, self.ts_boundary])
         
     def _generate_xs(self):
-        """Generate m+n interior+boundary prices randomly sampled from N(mid_price, 1)"""
-        self.xs          = np.random.normal(loc=self.mid_price, scale=0.1, size=self.m+self.n)
+        """Generate m+n interior+boundary prices randomly sampled from N(mid_price, 0.1)"""
+        self.xs          = np.random.normal(loc=self.x_mean, scale=self.x_var, size=self.m+self.n)
         self.xs_interior = self.xs[:self.m]
         self.xs_boundary = self.xs[self.m:]
         
@@ -233,14 +235,13 @@ class rBergomi_sigkernel_pricer(object):
         self.paths_boundary = np.zeros([self.n, self.n_increments+1, 2])
         for i in range(self.n):
             self.paths_boundary[i,:,0] = self.t_grid
-        self.paths          = np.concatenate([self.paths_interior, self.paths_boundary], axis=0)
+        self.paths = np.concatenate([self.paths_interior, self.paths_boundary], axis=0)
         
     def _generate_directions(self):
         """Generate m paths for directional derivatives"""
         self.directions = np.zeros((self.m, self.n_increments+1, 2))
-        for i, t_ind in enumerate(self.t_inds_interior):
-            t = self.t_grid[t_ind]
-            self.directions[i, t_ind+1:, 1] = [np.sqrt(2*self.a+1)*(self.t_grid[s_ind]-t)**self.a for s_ind in range(t_ind+1, self.n_increments+1)]
+        for i, (t_ind, t) in enumerate(zip(self.t_inds_interior, self.ts_interior)):
+            self.directions[i, t_ind+1:, 1] = [np.sqrt(2*self.a+1)*(s-t)**self.a for s in self.t_grid[t_ind+1:]]
             
     def _generate_kernel_matrix(self):
         """Generate kernel Gram matrix K"""

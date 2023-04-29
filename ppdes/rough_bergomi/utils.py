@@ -73,7 +73,7 @@ def exp_kernel(x, y, sigma):
     return np.exp(-(x-y)**2/(2.*sigma**2))
 
 def psi(t, x, a, xi, eta):
-    return xi*np.exp(eta*np.sqrt(2*a+1)*x-(eta**2/2)*t**(2*a-1))
+    return xi*np.exp(eta*x-(eta**2/2)*(t**(2*a+1)))
 
 def exp_kernel_matrix(x_samples, y_samples, sigma):
     I = x_samples.size  
