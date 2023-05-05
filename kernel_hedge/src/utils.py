@@ -32,7 +32,7 @@ def augment_with_time(x: torch.Tensor,
 def Hoff_transform(x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes the forward and backward component of the Hoff transform of paths in tensor x.
-    Recall how the transform of a path X sampled at times t_k is defined as
+    Recall how the transform of a path X sampled at times t_k has been defined as
 
         X^f_t = X_{t_k}                                                             if t \in (t_k, t_k + (t_{k+1} - t_k)/2]
               = X_{t_k} + 4(t - (t_k + (t_{k+1} - t_k)/2))(X_{t_{k+1}} - X_{t_k})   if t \in  (t_k + (t_{k+1} - t_k)/2, t_k + 3(t_{k+1} - t_k)/4]
