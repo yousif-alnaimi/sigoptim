@@ -1,6 +1,6 @@
 import numpy as np
 from utils import *
-from scipy.optimize import minimize
+from scipy.optimize import minimize, basinhopping
 
 class rBergomi(object):
     """
@@ -169,8 +169,8 @@ class rBergomi_MC_pricer(object):
         
     def X(self, t_ind, x, path):
         """rBergomi log-prices"""
-        V = self.V(t_ind, path)[:,:-1]
-        return x + np.cumsum(np.sqrt(V)*self.dB - .5*V*self.dt, axis=1)
+        V = self.V(t_ind, path)[:,t_ind:-1]
+        return x + np.cumsum(np.sqrt(V)*self.dB[:,t_ind:] - .5*V*self.dt, axis=1)
     
     def fit_predict(self, t_inds_eval, xs_eval, paths_eval, payoff):
         """MC prices"""
@@ -186,31 +186,25 @@ class rBergomi_sigkernel_pricer(object):
     """
     Class for conditional sigkernel pricer under rough Bergomi.
     """
-    def __init__(self, n_increments, x_mean, x_var, m, n, T, a, xi, eta, rho, sigma_t, sigma_x, sigma_sig, dyadic_order, max_batch, device):
+    def __init__(self, n_increments, x_var, m, n, T, a, xi, eta, rho, sigma_t, sigma_x, sigma_sig, dyadic_order, max_batch, device):
         
-        self.n_increments = n_increments
-        
-        self.x_mean = x_mean
-        self.x_var  = x_var
-        
-        self.m = m # collocation points interior
-        self.n = n # collocation points boundary
-        
-        self.T   = T 
-        self.a   = a
-        self.xi  = xi
-        self.eta = eta
-        self.rho = rho 
-        self.dt  = T/n_increments
-        
-        self.t_grid       = np.linspace(0, T, 1+n_increments)
-        self.sigma_t      = sigma_t
-        self.sigma_x      = sigma_x
-        self.sigma_sig    = sigma_sig
-        self.dyadic_order = dyadic_order 
-        self.max_batch    = max_batch
-        self.device       = device
-        
+        self.n_increments  = n_increments        
+        self.x_var         = x_var
+        self.m             = m 
+        self.n             = n 
+        self.T             = T 
+        self.a             = a
+        self.xi            = xi
+        self.eta           = eta
+        self.rho           = rho 
+        self.dt            = T/n_increments
+        self.t_grid        = np.linspace(0, T, 1+n_increments)
+        self.sigma_t       = sigma_t
+        self.sigma_x       = sigma_x
+        self.sigma_sig     = sigma_sig
+        self.dyadic_order  = dyadic_order 
+        self.max_batch     = max_batch
+        self.device        = device
         self.static_kernel = sigkernel.RBFKernel(sigma=sigma_sig)
         self.sig_kernel    = sigkernel.SigKernel(self.static_kernel, dyadic_order=dyadic_order)
         
@@ -225,7 +219,7 @@ class rBergomi_sigkernel_pricer(object):
         
     def _generate_xs(self):
         """Generate m+n interior+boundary prices randomly sampled from N(mid_price, 0.1)"""
-        self.xs          = np.random.normal(loc=self.x_mean, scale=self.x_var, size=self.m+self.n)
+        self.xs          = np.array([np.random.normal(loc=-self.xi*t/2, scale=self.x_var, size=1) for t in self.ts])
         self.xs_interior = self.xs[:self.m]
         self.xs_boundary = self.xs[self.m:]
         
@@ -268,20 +262,27 @@ class rBergomi_sigkernel_pricer(object):
         self._generate_kernel_matrix_constraints()
         self._generate_rhs(payoff)
         
-        # initialise weights
-        alpha0 = np.ones(self.m+self.n)
+        # # initialise weights
+        # alpha0 = np.ones(self.m+self.n)
 
-        # objective
-        objective = lambda alpha: np.matmul(alpha.T, np.matmul(self.K, alpha))
+        # # objective
+        # objective = lambda alpha: np.matmul(alpha.T, np.matmul(self.K, alpha))
 
-        # constraints
-        cons = [{"type": "eq", "fun": lambda alpha: np.matmul(self.K_hat, alpha) - self.rhs}]
+        # # constraints
+        # cons = [{"type": "eq", "fun": lambda alpha: np.matmul(self.K_hat, alpha) - self.rhs}]
 
-        # run optimisation
-        optim = minimize(fun=objective, x0=alpha0, constraints=cons)
+        # # run optimisation
+        # optim = minimize(fun=objective, x0=alpha0, constraints=cons, method='SLSQP', tol=1e-2)
 
-        # return optimal weights 
-        self.alphas = optim.x
+        # # return optimal weights 
+        # self.alphas = optim.x
+
+        M_up        = np.concatenate([self.K, self.K_hat.transpose()], axis=1)
+        M_down      = np.concatenate([self.K_hat, np.zeros_like(self.K_hat)], axis=1)
+        M           = np.concatenate([M_up, M_down], axis=0)
+        rhs_        = np.concatenate([np.zeros([self.m+self.n]), self.rhs])
+        self.alphas = (np.linalg.pinv(M) @ rhs_)[:self.m+self.n]
+
         
     def fit_predict(self, t_inds_eval, xs_eval, paths_eval, payoff):
         self.fit(payoff)

@@ -3,6 +3,7 @@ import torch
 from scipy.stats import norm, pearsonr
 from scipy.optimize import brentq
 import sigkernel
+import matplotlib.pyplot as plt
 
 def g(x, a):
     """
@@ -68,6 +69,9 @@ def bsinv(P, F, K, t, o = 'call'):
 
 def r2(x, y):
     return pearsonr(x, y)[0] ** 2
+
+def mse(x, y):
+    return np.mean((x-y)**2)
 
 def exp_kernel(x, y, sigma):
     return np.exp(-(x-y)**2/(2.*sigma**2))
@@ -168,8 +172,31 @@ def generate_evaluation_paths(t_inds, n_increments, T, a):
 
         # set second coordinate = integral kernel against bm 
         t = t_grid[t_ind]
-        for (i,s) in zip(range(t_ind+1, len(t_grid)), t_grid[t_ind+1:]):
+        for (i,s) in zip(range(t_ind, len(t_grid)), t_grid[t_ind:]):
             path[i,1] = np.sqrt(2*a+1)*np.sum([((s-t_grid[j])**a)*dW[j-1] for j in range(1,t_ind)]) 
         paths.append(path)
         
     return np.array(paths)
+
+
+def plot_results(mc_prices, sig_prices, m, n):
+    
+    r2_score = r2(mc_prices, sig_prices)
+    mse_score = mse(mc_prices, sig_prices)
+    
+    fig, ax = plt.subplots(1, 2, figsize=(16,5))
+
+    ax[0].plot(mc_prices, label='mc_prices')
+    ax[0].plot(sig_prices, label='sig_prices')
+    ax[0].set_title(f"Interior cpts: {m} --- Boundary cpts: {n} --- MSE = {np.round(mse_score, 5)}")
+    ax[0].legend()
+
+
+    ax[1].scatter(mc_prices, sig_prices, label='mc_prices')
+    ax[1].set_xlabel('mc_prices') 
+    ax[1].set_ylabel('sig_prices')
+    ax[1].set_title(f"$R^2$ = {np.round(r2_score, 3)}")
+    ax[1].plot([0,1],[0,1])
+
+    plt.tight_layout()
+    plt.show()
