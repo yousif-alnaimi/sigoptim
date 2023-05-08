@@ -783,3 +783,207 @@ class SigKernelHedger:
             opt.step()
 
         return loss.alpha
+
+
+class SigKernelTrader:
+    def __init__(self,
+                 kernel_fn,
+                 device,
+                 time_augment=True,
+                 dyadic_order=0):
+        """
+        Parameters
+        ----------
+
+        kernel_fn :  KernelCompute object
+
+        payoff_fn :  torch.Tensor(batch, timesteps, d) -> torch.Tensor(batch, 1)
+            This function must be batchable i.e. F((x_i)_i) = (F(x_i))_i
+        """
+
+        ## Instantiated
+
+        # Python options
+        self.device = device
+        # Kernel quantities
+        self.Kernel = kernel_fn
+        self.time_augment = time_augment
+        self.dyadic_order = dyadic_order
+
+        ## To instantiate later
+
+        # DataSets
+        self.train_set = None
+        self.train_set_dyadic = None
+        self.train_set_augmented = None
+        self.test_set = None
+        self.test_set_augmented = None
+        # Kernel Hedge quantities
+        self.eta = None
+        self.eta2 = None
+        self.regularisation = None
+        self.alpha = None
+        self.position = None
+        self.pnl = None
+        self.lambda_reg = None
+
+    def pre_fit(self, train_paths: torch.Tensor):
+        """
+        Compute the eta_square matrix of the training batch
+
+        Parameters
+        ----------
+        train_paths: (batch_train, timesteps, d)
+            The batched training paths
+
+        Returns
+        -------
+        None
+        """
+
+        ## Some preliminaries
+
+        # i - Make sure everything is on the same device
+        if not train_paths.device.type == self.device:
+            self.train_set = train_paths.to(self.device)
+        else:
+            self.train_set = train_paths
+        # ii - Dyadic Partition
+        self.train_set_dyadic = batch_dyadic_partition(self.train_set, self.dyadic_order)
+        # iii - Augment with time if self.time_augment == True
+        if self.time_augment:
+            self.train_set_augmented = augment_with_time(self.train_set_dyadic)
+        else:
+            self.train_set_augmented = self.train_set_dyadic
+
+        ## Compute eta_square matrix
+
+        # eta_square: (batch_train, batch_train)
+        self.eta2 = self.Kernel.eta_square(self.train_set_augmented,
+                                           time_augmented=self.time_augment)
+        # Xi: (batch_train, batch_train)
+        self.Xi = self.eta2/self.eta2.shape[0]
+
+    def fit(self, lambda_reg, reg_type='L2', regularisation=0.0):
+        """
+        Calibrate the trading strategy.
+        For calibration the sample size should be as large as possible to accurately approximate the empirical measure.
+        For real data a rolling window operation could be used to artificially increase the sample size.
+
+        Parameters
+        ----------
+
+        lambda_reg: float
+            The regularization corresponding to Variance
+
+        reg_type: str = 'RKHS' or 'L2'
+            user will input which type of regularisation they want, either RKHS penalisation or L2 norm
+            default is 'RKHS'
+
+        regularisation: float > 0
+            the large the regularisation, the smaller the alpha's become and more stable the strategy
+            often 10**(-3) to 10**(-10) is sensible range
+
+        Xi_precomputed: bool
+            Has the SigKer Gram been already computed? Time saver
+
+        verbose: bool
+            If True prints computation time for performing operations
+
+        Returns
+        -------
+        None
+
+        """
+
+        batch = self.train_set.shape[0]
+        self.lambda_reg = lambda_reg
+        self.regularisation = regularisation
+
+        # Start stopwatch if verbose is True
+        start = start = time.time()
+
+        # Xi_final: (batch, 1)
+        Xi_final = (self.Xi @ torch.ones((batch, 1)).to(self.device))
+        self.Xi_final = Xi_final
+
+        ## Add regularisation
+        # Penalization in RKHS
+        if reg_type == 'RKHS':
+            self.regulariser = self.regularisation * self.Xi
+        # Penalization in L2 norm
+        if reg_type == 'L2':
+            self.regulariser = self.regularisation * torch.eye(batch).to(self.device)
+
+        ## Compute the weights
+        # Omega: (batch, batch)
+        Omega = self.Xi @ self.Xi - (Xi_final @ Xi_final.T)/batch
+        # alpha: (batch)
+        self.alpha = 0.5 * (torch.inverse(self.lambda_reg*Omega + self.regulariser) @ Xi_final).squeeze(-1)
+
+        print('Alpha Obtained: %s' % (time.time() - start))
+
+    def pre_pnl(self, test_paths: torch.Tensor):
+
+        ## Some preliminaries
+
+        # i - Make sure everything is on the same device
+        if not test_paths.device.type == self.device:
+            self.test_set = test_paths.to(self.device)
+        else:
+            self.test_set = test_paths
+        # ii - Dyadic Partition
+        self.test_set_dyadic = batch_dyadic_partition(self.test_set, self.dyadic_order)
+        # iii - Augment with time if self.time_augment == True
+        if self.time_augment:
+            self.test_set_augmented = augment_with_time(self.test_set_dyadic)
+        else:
+            self.test_set_augmented = self.test_set_dyadic
+
+        # eta : (batch_x, batch_y, timesteps_y_dyadic, d)
+        # eta[i,j,t,k] = eta_{x_i}(y_j|_{[0,t]}) = \int_0^1 K(X,Y)[i,j,s,t] dx[i,s,k]
+        self.eta = self.Kernel.eta(self.train_set_augmented,
+                                   self.test_set_augmented,
+                                   time_augmented=self.time_augment)
+
+    def compute_pnl(self, test_paths: torch.Tensor, eta_precomputed=True):
+        """
+        For a given path, we can compute the PnL with respect to the fitted strategy
+
+        Parameters
+        ----------
+        test_paths: torch.Tensor(batch_y, timesteps, d)
+            These are the paths to be hedged
+
+        Returns
+        -------
+        None
+
+        """
+
+        if (self.eta is None) or (not eta_precomputed):
+            self.pre_pnl(test_paths)
+
+        ## Some preliminaries
+
+        start = time.time()
+
+        ## Compute position for each time t in the test path
+
+        # position : (batch_y, timesteps_y_dyadic, d)
+        # i.e. position[j,t,k] = \phi^k(y_j|_{0,t}) = (1/batch_x) * \sum_i alpha[i,*,*,*] eta[i,j,t,k]
+        self.position = (self.alpha.unsqueeze(1).unsqueeze(2).unsqueeze(3) * self.eta).mean(dim=0)
+        ## Compute PnL over the whole path.
+
+        # dy : (batch_y, timesteps_y_dyadic-1, d)
+        dy = torch.diff(self.test_set_dyadic, dim=1)
+        # pnl: (batch_y, timesteps_y_dyadic-1)
+        # pnl[j,t] = \sum_k \int_0^t position[j,t,k] dy[j,t,k]
+        self.pnl = (self.position[:, :-1] * dy).cumsum(dim=1).sum(dim=-1)
+
+        # pnl: (batch_y, timesteps_y-1)
+        self.pnl = batch_dyadic_recovery(self.pnl, self.dyadic_order)
+        # position : (batch_y, timesteps_y, d)
+        self.position = batch_dyadic_recovery(self.position, self.dyadic_order)
+
+        print('Test PnL Obtained: %s' % (time.time() - start))
