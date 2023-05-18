@@ -165,52 +165,58 @@ def generate_I(t_ind, a, dW1):
     for u_ind in range(n_increments-t_ind):
         dW1_shifted[:,u_ind,:] = dW1[:,u_ind+t_ind,:]
 
-    I_shifted_ = generate_X(a, dW1_shifted)
+    X = generate_X(a, dW1_shifted)
 
-    I_shifted = np.zeros_like(I_shifted_)
+    I = np.zeros_like(X)
     for s_ind in range(n_increments-t_ind+1):
-        I_shifted[:,s_ind+t_ind] = I_shifted_[:,s_ind]
+        I[:,s_ind+t_ind] = X[:,s_ind]
     
-    return I_shifted
+    return I
 
 def generate_xs(xi, x_var, ts):
     return np.array([np.random.uniform(low=-xi*t/2-x_var, high=-xi*t/2+x_var, size=1) for t in ts])
 
 def generate_theta_paths(t_inds, n_increments, T, a):
+    
     t_grid = np.linspace(0, T, n_increments+1)
     dt     = T/n_increments
+    
     paths  = []
     for t_ind in t_inds:
-        # Brownian increments
+
         dW = np.random.normal(loc=0., scale=np.sqrt(dt), size=t_ind)
-        # initialise path theta
+
         path = np.zeros((n_increments+1, 2))
-        # set first coordinate = time
         path[:,0] = t_grid
-        # set second coordinate = integral kernel against bm 
-        t = t_grid[t_ind]
-        for (i,s) in zip(range(t_ind, len(t_grid)), t_grid[t_ind:]):
-            path[i,1] = np.sqrt(2*a+1.)*np.sum([((s-t_grid[j])**a)*dW[j-1] for j in range(1,t_ind)]) 
+        for (i,s) in zip(range(t_ind+1, len(t_grid)), t_grid[t_ind+1:]):
+            path[i,1] = np.sqrt(2*a+1.)*np.sum([((s-t_grid[j+1])**a)*dW[j] for j in range(t_ind)]) 
         paths.append(path)
+    
     return np.array(paths)
 
 def generate_X_theta_paths(t_inds, n_increments, T, a):
+    
+    dt     = np.sqrt(T/n_increments)
     t_grid = np.linspace(0, T, n_increments+1)
+
+    C     = cov(a, n_increments)
+    L     = np.linalg.cholesky(C)
+    L_inv = np.linalg.inv(L)
+    
     paths  = []
     for t_ind in t_inds:
-        # Brownian increments
+
         dW_ = generate_dW1(a, n_increments, 1)
         X   = generate_X(a, dW_)[0]
-        dW  = dW_[0,:,0]
-        # initialise path theta
+        dW  = np.einsum('ij, pqj -> pqi', L_inv, dW_)[0,:,0]*dt
+        
         path = np.zeros((n_increments+1, 2))
-        # set first coordinate = time
         path[:,0] = t_grid
-        # set second coordinate I \otimes_t_ind Theta^t_ind
-        path[:t_ind,1] = X[:t_ind] 
-        for (i,s) in zip(range(t_ind, len(t_grid)), t_grid[t_ind:]):
-            path[i,1] = np.sqrt(2*a+1.)*np.sum([((s-t_grid[j])**a)*dW[j-1] for j in range(1,t_ind)]) 
+        path[:t_ind+1,1] = X[:t_ind+1] 
+        for (i,s) in zip(range(t_ind+1, len(t_grid)), t_grid[t_ind+1:]):
+            path[i,1] = np.sqrt(2*a+1.)*np.sum([((s-t_grid[j+1])**a)*dW[j] for j in range(t_ind)]) 
         paths.append(path)   
+    
     return np.array(paths)
 
 def plot_results(mc_prices, sig_prices, m, n, error_fn, error_name):

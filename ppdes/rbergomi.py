@@ -20,7 +20,7 @@ class rBergomi_MC_pricer(object):
             
     def V(self, t_ind, path):
         """Path-dependent Variance process"""
-        Y = generate_shiftedI(t_ind, self.a, self.dW1)
+        Y = generate_I(t_ind, self.a, self.dW1)
         return self.xi*np.exp(self.eta*(path + Y) - .5*self.eta**2*self.t_grid**(2*self.a+1))
         
     def X(self, t_ind, x, path):
@@ -115,8 +115,8 @@ class rBergomi_sigkernel_pricer(object):
         A1 = M_t*K_mixed
         A2 = -0.5*M_psi*M_x*K_mixed
         A3 = 0.5*M_psi*M_xx*K_mixed
-        A4 = 0.5*K_t*K_x*K_sig_diff_diff
-        A5 = rho*np.sqrt(M_psi)*M_x*K_t*K_x*K_sig_diff
+        A4 = 0.5*K_t_up*K_x_up*K_sig_diff_diff_up
+        A5 = self.rho*np.sqrt(M_psi)*M_x*K_t_up*K_x_up*K_sig_diff_up
         K_hat_up = A1 + A2 + A3 + A4 + A5
         K_hat_down = self.mixed_kernel_matrix(self.ts_boundary, self.ts, self.xs_boundary, self.xs, self.paths_boundary, self.paths)
         self.K_hat = np.concatenate([K_hat_up, K_hat_down], axis=0)
