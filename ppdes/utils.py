@@ -177,7 +177,7 @@ def generate_xs(xi, x_var, ts):
     return np.array([np.random.uniform(low=-xi*t/2-x_var, high=-xi*t/2+x_var, size=1) for t in ts])
 
 def generate_theta_paths(t_inds, n_increments, T, a):
-    
+
     t_grid = np.linspace(0, T, n_increments+1)
     dt     = T/n_increments
     
@@ -188,36 +188,36 @@ def generate_theta_paths(t_inds, n_increments, T, a):
 
         path = np.zeros((n_increments+1, 2))
         path[:,0] = t_grid
-        for (i,s) in zip(range(t_ind+1, len(t_grid)), t_grid[t_ind+1:]):
-            path[i,1] = np.sqrt(2*a+1.)*np.sum([((s-t_grid[j+1])**a)*dW[j] for j in range(t_ind)]) 
+        for (i,s) in zip(range(t_ind, len(t_grid)), t_grid[t_ind:]):
+            path[i,1] = np.sqrt(2*a+1.)*np.sum([((s-t_grid[j])**a)*dW[j] for j in range(t_ind-1)]) 
         paths.append(path)
     
     return np.array(paths)
 
-def generate_X_theta_paths(t_inds, n_increments, T, a):
+# def generate_X_theta_paths(t_inds, n_increments, T, a):
     
-    dt     = np.sqrt(T/n_increments)
-    t_grid = np.linspace(0, T, n_increments+1)
+#     dt     = np.sqrt(T/n_increments)
+#     t_grid = np.linspace(0, T, n_increments+1)
 
-    C     = cov(a, n_increments)
-    L     = np.linalg.cholesky(C)
-    L_inv = np.linalg.inv(L)
+#     C     = cov(a, n_increments)
+#     L     = np.linalg.cholesky(C)
+#     L_inv = np.linalg.inv(L)
     
-    paths  = []
-    for t_ind in t_inds:
+#     paths  = []
+#     for t_ind in t_inds:
 
-        dW_ = generate_dW1(a, n_increments, 1)
-        X   = generate_X(a, dW_)[0]
-        dW  = np.einsum('ij, pqj -> pqi', L_inv, dW_)[0,:,0]*dt
+#         dW_ = generate_dW1(a, n_increments, 1)
+#         X   = generate_X(a, dW_)[0]
+#         dW  = np.einsum('ij, pqj -> pqi', L_inv, dW_)[0,:,0]*dt
         
-        path = np.zeros((n_increments+1, 2))
-        path[:,0] = t_grid
-        path[:t_ind+1,1] = X[:t_ind+1] 
-        for (i,s) in zip(range(t_ind+1, len(t_grid)), t_grid[t_ind+1:]):
-            path[i,1] = np.sqrt(2*a+1.)*np.sum([((s-t_grid[j+1])**a)*dW[j] for j in range(t_ind)]) 
-        paths.append(path)   
+#         path = np.zeros((n_increments+1, 2))
+#         path[:,0] = t_grid
+#         path[:t_ind+1,1] = X[:t_ind+1] 
+#         for (i,s) in zip(range(t_ind+1, len(t_grid)), t_grid[t_ind+1:]):
+#             path[i,1] = np.sqrt(2*a+1.)*np.sum([((s-t_grid[j+1])**a)*dW[j] for j in range(t_ind)]) 
+#         paths.append(path)   
     
-    return np.array(paths)
+#     return np.array(paths)
 
 def plot_results(mc_prices, sig_prices, m, n, error_fn, error_name):
     r2_score = r2(mc_prices, sig_prices)

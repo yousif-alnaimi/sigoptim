@@ -20,7 +20,7 @@ class fBM_MC_pricer(object):
         mc_prices = []
         for t_ind, path in zip(t_inds_eval, paths_eval):
             path = np.repeat(path[:,1][np.newaxis,:], self.n_samples_MC, axis=0)
-            log_prices = path + generate_I(t_ind, self.a, self.dW1)
+            log_prices = path[-1,1] + generate_I(t_ind, self.a, self.dW1)[-1]
             mc_prices.append(np.mean([payoff(p) for p in log_prices]))
         return np.array(mc_prices)
 
@@ -54,8 +54,8 @@ class fBM_sigkernel_pricer(object):
         
     def _generate_paths(self):
         """Generate m interior paths X \otimes_t \Theta (time-augmented) and n boundary "0" paths"""        
-        self.paths_interior = generate_X_theta_paths(self.t_inds_interior, self.n_increments, self.T, self.a)
-        self.paths_boundary = generate_X_theta_paths(np.array(self.n*[self.n_increments]), self.n_increments, self.T, self.a)
+        self.paths_interior = generate_theta_paths(self.t_inds_interior, self.n_increments, self.T, self.a)
+        self.paths_boundary = generate_theta_paths(self.t_inds_boundary, self.n_increments, self.T, self.a)
         self.paths = np.concatenate([self.paths_interior, self.paths_boundary], axis=0)
         
     def _generate_directions(self):
@@ -79,7 +79,9 @@ class fBM_sigkernel_pricer(object):
         K_t_up = exp_kernel_matrix(self.ts_interior, self.ts, self.sigma_t)
         K_sig_up, _, K_sig_diff_diff_up = sig_kernel_matrices(self.paths_interior, self.paths, self.directions, self.sig_kernel, self.max_batch, self.device)
         factor = factor1_matrix(self.ts_interior, self.ts, self.sigma_t)
+        
         K_hat_up = factor*K_t_up*K_sig_up + 0.5*K_t_up*K_sig_diff_diff_up
+        
         K_hat_down = self.mixed_kernel_matrix(self.ts_boundary, self.ts, self.paths_boundary, self.paths) 
         self.K_hat = np.concatenate([K_hat_up, K_hat_down], axis=0)
         
@@ -87,7 +89,7 @@ class fBM_sigkernel_pricer(object):
         """Generate right-hand-side of linear system with terminal condition"""
         self.rhs = np.zeros((self.m+self.n,))
         for i in range(self.m,self.m+self.n):
-            self.rhs[i] = payoff(self.paths[i,:,1])
+            self.rhs[i] = payoff(self.paths[i,-1,1])
         
     def fit(self, payoff):
         self._generate_ts()

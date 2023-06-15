@@ -80,9 +80,7 @@ class rBergomi_sigkernel_pricer(object):
     def _generate_paths(self):
         """Generate m interior paths as (time-augmented) forward variance curves and n boundary "0" paths"""
         self.paths_interior = generate_theta_paths(self.t_inds_interior, self.n_increments, self.T, self.a) 
-        self.paths_boundary = np.zeros([self.n, self.n_increments+1, 2])
-        for i in range(self.n):
-            self.paths_boundary[i,:,0] = self.t_grid
+        self.paths_boundary = generate_theta_paths(self.t_inds_boundary, self.n_increments, self.T, self.a)
         self.paths = np.concatenate([self.paths_interior, self.paths_boundary], axis=0)
         
     def _generate_directions(self):
