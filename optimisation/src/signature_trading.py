@@ -76,7 +76,7 @@ class _pre_get_funcs:
         variance_polynomial_ = portfolio_variance(ells, esig, shift)
         variance_polynomial  = sym.lambdify([self.ell_coeffs], variance_polynomial_)
 
-        @wrapper_factory(N_assets=self._N, n_terms=self.n_terms)
+        @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
         def variance_function(a):
             return variance_polynomial(a)
 
@@ -87,7 +87,7 @@ class _pre_get_funcs:
         return_polynomial_ = portfolio_return(ells, esig, shift)
         return_polynomial  = sym.lambdify([self.ell_coeffs], return_polynomial_)
 
-        @wrapper_factory(N_assets=self._N, n_terms=self.n_terms)
+        @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
         def return_function(a):
             return return_polynomial(a)
 
@@ -98,7 +98,7 @@ class _pre_get_funcs:
         weight_sum_polynomial_= sum_weights(ells, esig)
         weight_sum_polynomial = sym.lambdify([self.ell_coeffs], weight_sum_polynomial_)
 
-        @wrapper_factory(N_assets=self._N, n_terms=self.n_terms)
+        @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
         def weight_sum_function(a):
             return weight_sum_polynomial(a)
 
@@ -109,7 +109,7 @@ class _pre_get_funcs:
         individual_weights_polynomial_ = get_weights(ells, esig)
         individual_weights_polynomial  = sym.lambdify([self.ell_coeffs], individual_weights_polynomial_)
 
-        @wrapper_factory(N_assets=self._N, n_terms=self.n_terms)
+        @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
         def individual_weights_function(a):
             return individual_weights_polynomial(a)
 
