@@ -182,7 +182,20 @@ for index in range(len(signature_list)):
     axs[index, 1].set_ylabel('Portfolio P&L')
     axs[index, 1].set_title('Efficient frontier real')
 
-    res = ellstars[index]
+    sharpe_list = []
+    for i in range(len(ellstars)):
+        res = ellstars[i]
+        var = portfolio_variance(res, vc)
+        ret = portfolio_exp_ret(mw, res)
+        rfr = 0
+        sharpe = (ret - rfr) / np.sqrt(var)
+        sharpe_list.append(sharpe)
+
+    max_sharpe = np.max(sharpe_list)
+    argmax_sharpe = np.argmax(sharpe_list)
+    print('Max sharpe ratio:', max_sharpe, 'at index:', argmax_sharpe)
+
+    res = ellstars[argmax_sharpe]
     # print(len(res.x), A.shape)
     asset_weights = A @ res.x
     print('weights of each asset:', asset_weights) 
@@ -195,4 +208,5 @@ for index in range(len(signature_list)):
         print("PASSED! Weights sum to 1!")
 
 print("Time taken for all iterations:", time.time() - start)
+fig.tight_layout()
 fig.savefig('efficient_frontier.png')
