@@ -165,7 +165,8 @@ for index in range(len(signature_list)):
 
     expected_pnls = np.linspace(-0.02, 0.1, 50)
     ellstars = []
-    for pnl in tqdm(expected_pnls):
+    # for pnl in tqdm(expected_pnls):
+    for pnl in expected_pnls:
         ellstars.append(signature_mean_variance_optim(pnl, vc, mw, ws, A))
 
     # plot efficient frontier
@@ -206,6 +207,7 @@ for index in range(len(signature_list)):
         print("FAILED! Weights do not sum to 1!")
     else:
         print("PASSED! Weights sum to 1!")
+    print("\n")
 
 print("Time taken for all iterations:", time.time() - start)
 fig.tight_layout()
