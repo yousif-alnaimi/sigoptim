@@ -67,6 +67,7 @@ init_method = 'BNSE'
 method = 'Adam'
 
 df2.loc[:,'time'] = np.linspace(0, 1, len(df2))
+# print(df2.to_numpy().shape)
 
 gpm_dataset = mogptk.LoadDataFrame(df2, x_col='time', y_col=names)
 
@@ -88,18 +89,30 @@ dim = N
 word_concatenate_shuffle_dict = word_concatenate_shuffle(level,level)
 
 # generate a list containing paths of each channels
+n_samples = 1000
 time_steps = len(df2.index)
-X = gpm.sample(np.linspace(0,1,time_steps),n=1000)
+X = gpm.sample(np.linspace(0,1,time_steps),n=n_samples)
 # rearrange the result into (number_of_paths,time_step+1,dim)
 paths = np.concatenate([x.T.reshape(-1,time_steps,1) for x in X],axis=2)
 # normalize with the mean of the price at time 0
 paths /= np.mean(paths[:,0],axis=0)
+time_inds = np.expand_dims(np.stack([np.linspace(0,1,time_steps) for _ in range(n_samples)], axis=0), axis=2)
+# print(time_inds.shape)
+print(paths[0])
+paths = subtract_first_row(paths)
+# paths = np.concatenate((time_inds, paths), axis=2)
 
 # print(paths.shape)
+print(paths[0])
 lengths = [len(df.index) for df in df_split]
 path_list = [paths[:, :length, :] for length in lengths]
 
+
+# # apply transformations to paths
+# path_list = [HoffLeadLag(path) for path in path_list]
+
 tensor_path = torch.tensor(paths, device=device)
+# print(tensor_path.shape)
 
 # compute expected signature
 signature = signatory.signature(tensor_path,level*2).mean(axis=0)
@@ -126,7 +139,16 @@ weights_sum_list = [get_weights_sum_coeff(sig,dim,level) for sig in signature_li
 # # get coefficients of a^i_w in weights and weight sum functions 
 # weights_sum = get_weights_sum_coeff(signature,dim,level)
 # A = np.array([get_weights_coeff(signature,i,dim,level) for i in range(dim)])
+
+z = df2.to_numpy()
+z = subtract_first_row(np.expand_dims(z, axis=0))
+orig_path_list = [z[:length, :] for length in lengths]
+orig_tpath_list = [torch.tensor(path, device=device) for path in orig_path_list]
+orig_sig_list = [signatory.signature(path, level*2).mean(axis=0) for path in orig_tpath_list]
+print(orig_sig_list[0].shape)
+orig_sig_list = [np.concatenate([[1],np.array(sig.cpu())]) for sig in orig_sig_list]
 A_mats = [np.array([get_weights_coeff(sig,i,dim,level) for i in range(dim)]) for sig in signature_list]
+# A_mats = [np.array([get_weights_coeff(sig,i,dim,level) for i in range(dim)]) for sig in orig_sig_list]
 # sig_len = length_of_signature(dim,level)
 # print(A[0, :sig_len], A[1, sig_len:2*sig_len])
 
@@ -203,7 +225,7 @@ for index in range(len(signature_list)):
     print('result portfolio variance:', portfolio_variance(res, vc))
     print('result portfolio expected return:', portfolio_exp_ret(mw, res))
     print('weights sum: ', (asset_weights).sum())
-    if (asset_weights).sum() - 1 > 1e-5:
+    if abs((asset_weights).sum() - 1) > 1e-5:
         print("FAILED! Weights do not sum to 1!")
     else:
         print("PASSED! Weights sum to 1!")

@@ -324,3 +324,33 @@ def get_weights_coeff(signature,m,dim,level):
     coeff = np.zeros(sig_len*dim)
     coeff[m*sig_len:(m+1)*sig_len] = signature[:sig_len]
     return coeff
+
+
+def HoffLeadLag(paths: np.ndarray) -> np.ndarray:
+    """
+    Performs Hoff lead-lag transformation on a bank of paths. Sends N x l x d to N x 4l + 1 x 2d.
+
+    :param paths:   Bank to have Hoff lead-lag applied to
+    :return:        Hoff lead-lag transformed paths
+    """
+    _r = np.repeat(paths, 4, axis=1)
+    _cpath = np.concatenate([_r[:, :-5], _r[:, 5:]], axis=2)
+    _start = np.expand_dims(np.c_[_r[:, 0], _r[:, 0]], 1)
+
+    return np.concatenate([_start, _cpath], axis=1)
+
+
+def subtract_first_row(paths: np.ndarray) -> np.ndarray:
+    """
+    Subtract the first row of the paths from all rows in the paths.
+
+    :param paths:   Paths to have the first row subtracted from
+    :return:        Paths with the first row subtracted
+    """
+    _, l, _ = paths.shape
+
+    return paths - np.tile(np.expand_dims(paths[:, 0, :], 1), (1, l, 1))
+
+
+# print(np.array([[[1,2,3],[4,5,6],[7,8,9]],[[1,2,3],[4,5,6],[7,8,9]]]))
+# print(subtract_first_row(np.array([[[1,2,3, 4],[4,5,6, 4],[7,8,9, 4]],[[1,2,3, 5],[4,5,6,5],[7,8,9,5]]])))
