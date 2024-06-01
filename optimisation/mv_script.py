@@ -20,7 +20,7 @@ from mv_utils import *
 
 device = torch.device("cuda")
 N = 3
-level = 3
+level = 2
 
 # stocks
 df      = pd.read_csv('./stocks.csv', index_col=0)
@@ -56,10 +56,10 @@ def monthly_ts_split(df):
 
 df_split = monthly_ts_split(df2)
 
-mogptk.use_cpu()
+# mogptk.use_cpu()
 
-# if torch.cuda.is_available():
-#    mogptk.use_gpu(0)
+if torch.cuda.is_available():
+   mogptk.use_gpu(0)
 
 training_size = 0.95
 Q = N
@@ -98,9 +98,10 @@ paths = np.concatenate([x.T.reshape(-1,time_steps,1) for x in X],axis=2)
 paths /= np.mean(paths[:,0],axis=0)
 time_inds = np.expand_dims(np.stack([np.linspace(0,1,time_steps) for _ in range(n_samples)], axis=0), axis=2)
 # print(time_inds.shape)
-print(paths[0])
+
 paths = subtract_first_row(paths)
-# paths = np.concatenate((time_inds, paths), axis=2)
+dim = N +1
+paths = np.concatenate((time_inds, paths), axis=2)
 
 # print(paths.shape)
 print(paths[0])
@@ -110,6 +111,7 @@ path_list = [paths[:, :length, :] for length in lengths]
 
 # # apply transformations to paths
 # path_list = [HoffLeadLag(path) for path in path_list]
+print(path_list[-1][0])
 
 tensor_path = torch.tensor(paths, device=device)
 # print(tensor_path.shape)
@@ -161,12 +163,13 @@ def signature_mean_variance_optim(exp_return, var_coeff=var_coeff_list[-1], mean
     
     cons = ({'type': 'eq', 'fun': lambda coeff: np.squeeze(mean_weights)@coeff-exp_return},
                        {'type': 'eq', 'fun': lambda coeff: weights_sum@coeff-1},
-                       LinearConstraint(A,lb=np.zeros(dim),ub=np.ones(dim)))
+                       LinearConstraint(A,lb=np.zeros(dim),ub=np.ones(dim)),
+                       {'type': 'eq', 'fun': lambda coeff: (A@coeff)[0]} # only enable if time aug
+                       ) # time aug 
     
-    start = time.time()
     res = minimize(object_function, np.ones(length_of_signature(dim,level)*dim), method='SLSQP',
                    constraints=cons)
-    # print('time for optimisation:',time.time()-start)
+    
     return res
 
 def portfolio_variance(res, var_coeff):
