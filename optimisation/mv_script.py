@@ -101,6 +101,7 @@ time_inds = np.expand_dims(np.stack([np.linspace(0,1,time_steps) for _ in range(
 
 paths = subtract_first_row(paths)
 dim = N +1
+# dim = N
 paths = np.concatenate((time_inds, paths), axis=2)
 
 # print(paths.shape)
