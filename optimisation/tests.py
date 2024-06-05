@@ -37,7 +37,7 @@ gpm = mogptk.SM_LMC(gpm_dataset, Q=Q, inference=mogptk.Exact())
 gpm.init_parameters(init_method)
 loss,error = gpm.train(method=method, lr=0.01, iters=1000, verbose=False, plot=False)
 
-dim = N
+dim = N + 1
 level = 2
 
 # generate a list containing paths of each channels
@@ -71,9 +71,9 @@ print(hoff_paths_t.shape)
 
 fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 axs[0].plot(hoff_paths[0, :, 1])
-axs[0].plot(hoff_paths[0, :, N+1])
+axs[0].plot(hoff_paths[0, :, dim+1])
 axs[0].plot(hoff_paths_t[0, :, 1])
-axs[0].plot(hoff_paths_t[0, :, N+1])
+axs[0].plot(hoff_paths_t[0, :, dim+1])
 axs[1].plot(paths[0, :, 0])
 axs[1].plot(paths_t[0, :, 1])
 fig.show()

@@ -282,9 +282,9 @@ def get_sig_variance(signature,word_operation_dict,dim,level,hoff=False):
     sig_len = length_of_signature(dim,level)
     weights = np.zeros((sig_len*dim,sig_len*dim))
     if hoff:
-        for m in range(dim, 2*dim):
-            for n in range(dim, 2*dim):
-                weights[m*sig_len:(m+1)*sig_len,n*sig_len:(n+1)*sig_len] = squared_integration_functional(signature,word_operation_dict,dim,level,m,n)
+        for m_ind, m in enumerate(range(dim, 2*dim)):
+            for n_ind, n in enumerate(range(dim, 2*dim)):
+                weights[m_ind*sig_len:(m_ind+1)*sig_len,n_ind*sig_len:(n_ind+1)*sig_len] = squared_integration_functional(signature,word_operation_dict,dim,level,m,n)
         return weights
     else:
         for m in range(dim):
@@ -343,6 +343,7 @@ def HoffLeadLag(paths: np.ndarray, time_aug: bool=False) -> np.ndarray:
     if time_aug:
         paths = paths[:, :, 1:]
 
+    dim = paths.shape[2]
 
     _r = np.repeat(paths, 4, axis=1)
     _cpath = np.concatenate([_r[:, :-5], _r[:, 5:]], axis=2)
@@ -353,7 +354,7 @@ def HoffLeadLag(paths: np.ndarray, time_aug: bool=False) -> np.ndarray:
     n_samples = hoff_paths.shape[0]
 
     time_inds = np.expand_dims(np.stack([np.linspace(0,1,time_steps) for _ in range(n_samples)], axis=0), axis=2)
-    return np.concatenate((time_inds, hoff_paths), axis=2)
+    return np.concatenate((time_inds, hoff_paths[:, :, :dim], time_inds, hoff_paths[:, :, dim:]), axis=2)
 
 
 def subtract_first_row(paths: np.ndarray) -> np.ndarray:

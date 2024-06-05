@@ -85,48 +85,52 @@ gpm = mogptk.SM_LMC(gpm_dataset, Q=Q, inference=mogptk.Exact())
 gpm.init_parameters(init_method)
 loss,error = gpm.train(method=method, lr=0.01, iters=1000, verbose=False, plot=False)
 
-dim = N
+# dim = N
 word_concatenate_shuffle_dict = word_concatenate_shuffle(level,level)
 
 # generate a list containing paths of each channels
-n_samples = 1000
+n_samples = 100
 time_steps = len(df2.index)
 X = gpm.sample(np.linspace(0,1,time_steps),n=n_samples)
 # rearrange the result into (number_of_paths,time_step+1,dim)
 paths = np.concatenate([x.T.reshape(-1,time_steps,1) for x in X],axis=2)
 # normalize with the mean of the price at time 0
 paths /= np.mean(paths[:,0],axis=0)
-time_inds = np.expand_dims(np.stack([np.linspace(0,1,time_steps) for _ in range(n_samples)], axis=0), axis=2)
+# time_inds = np.expand_dims(np.stack([np.linspace(0,1,time_steps) for _ in range(n_samples)], axis=0), axis=2)
 # print(time_inds.shape)
 
 paths = subtract_first_row(paths)
-dim = N +1
+dim = N + 1
 # dim = N
-paths = np.concatenate((time_inds, paths), axis=2)
+# paths = np.concatenate((time_inds, paths), axis=2)
 
 # print(paths.shape)
-print(paths[0])
+# print(paths[0])
 lengths = [len(df.index) for df in df_split]
 path_list = [paths[:, :length, :] for length in lengths]
 
 
 # # apply transformations to paths
-# path_list = [HoffLeadLag(path) for path in path_list]
+hoff_path_list = [HoffLeadLag(path) for path in path_list]
 print(path_list[-1][0])
 
-tensor_path = torch.tensor(paths, device=device)
-# print(tensor_path.shape)
+# tensor_path = torch.tensor(paths, device=device)
+# # print(tensor_path.shape)
 
-# compute expected signature
-signature = signatory.signature(tensor_path,level*2).mean(axis=0)
+# # compute expected signature
+# signature = signatory.signature(tensor_path,level*2).mean(axis=0)
 
-# add zero level to the signature
-signature = np.concatenate([[1],np.array(signature.cpu())])
+# # add zero level to the signature
+# signature = np.concatenate([[1],np.array(signature.cpu())])
 
 # do the same as the above but for time points specified above
 tensor_path_list = [torch.tensor(path, device=device) for path in path_list]
 signature_list = [signatory.signature(path, level*2).mean(axis=0) for path in tensor_path_list]
 signature_list = [np.concatenate([[1],np.array(sig.cpu())]) for sig in signature_list]
+
+hoff_tensor_path_list = [torch.tensor(path, device=device) for path in hoff_path_list]
+hoff_signature_list = [signatory.signature(path, level*2).mean(axis=0) for path in hoff_tensor_path_list]
+hoff_signature_list = [np.concatenate([[1],np.array(sig.cpu())]) for sig in hoff_signature_list]
 
 
 start0 = time.time()
@@ -135,8 +139,8 @@ start0 = time.time()
 #     [integration_functional_coeff(signature,dim,level,i) for i in range(dim)]).reshape(1,-1)
 # var_coeff = get_sig_variance(signature,word_concatenate_shuffle_dict,dim,level)
 
-mean_weights_list = [np.array([integration_functional_coeff(sig,dim,level,i) for i in range(dim)]).reshape(1,-1) for sig in signature_list] # change dim here for hoff
-var_coeff_list = [get_sig_variance(sig,word_concatenate_shuffle_dict,dim,level) for sig in signature_list]
+mean_weights_list = [np.array([integration_functional_coeff(sig,dim,level,i) for i in range(dim, 2*dim)]).reshape(1,-1) for sig in hoff_signature_list] # change dims here for hoff
+var_coeff_list = [get_sig_variance(sig,word_concatenate_shuffle_dict,dim,level, hoff=True) for sig in hoff_signature_list]
 weights_sum_list = [get_weights_sum_coeff(sig,dim,level) for sig in signature_list]
 
 # # get coefficients of a^i_w in weights and weight sum functions 
@@ -150,6 +154,16 @@ orig_tpath_list = [torch.tensor(path, device=device) for path in orig_path_list]
 orig_sig_list = [signatory.signature(path, level*2).mean(axis=0) for path in orig_tpath_list]
 print(orig_sig_list[0].shape)
 orig_sig_list = [np.concatenate([[1],np.array(sig.cpu())]) for sig in orig_sig_list]
+
+# dim = N + 1
+# A_mats = []
+# for sig in signature_list:
+#     mat = []
+#     for i in range(dim):
+#         print(get_weights_coeff(sig,i,dim,level))
+#         mat.append(get_weights_coeff(sig,i,dim,level))
+#     A_mats.append(np.array(mat))
+# print(get_weights_coeff(signature_list[-1],2,dim,level))
 A_mats = [np.array([get_weights_coeff(sig,i,dim,level) for i in range(dim)]) for sig in signature_list]
 # A_mats = [np.array([get_weights_coeff(sig,i,dim,level) for i in range(dim)]) for sig in orig_sig_list]
 # sig_len = length_of_signature(dim,level)
@@ -165,7 +179,7 @@ def signature_mean_variance_optim(exp_return, var_coeff=var_coeff_list[-1], mean
     cons = ({'type': 'eq', 'fun': lambda coeff: np.squeeze(mean_weights)@coeff-exp_return},
                        {'type': 'eq', 'fun': lambda coeff: weights_sum@coeff-1},
                        LinearConstraint(A,lb=np.zeros(dim),ub=np.ones(dim)),
-                       {'type': 'eq', 'fun': lambda coeff: (A@coeff)[0]} # only enable if time aug
+                    #    {'type': 'eq', 'fun': lambda coeff: (A@coeff)[0]} # only enable if time aug
                        ) # time aug 
     
     res = minimize(object_function, np.ones(length_of_signature(dim,level)*dim), method='SLSQP',
