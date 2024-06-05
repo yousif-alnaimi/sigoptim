@@ -9,7 +9,7 @@ import pandas as pd
 import mogptk  # pytorch >= 11.0 is required
 import torch # pytorch 11.0 is used
 import signatory # if cannot find a version compatible with pytorch, 
-                 # install locally follows insturctions on https://github.com/patrick-kidger/signatory
+                 # install locally follow instructions on https://github.com/patrick-kidger/signatory
 import time
 from scipy.optimize import minimize, LinearConstraint
 from src.optimisation.signature import ES
@@ -135,7 +135,7 @@ start0 = time.time()
 #     [integration_functional_coeff(signature,dim,level,i) for i in range(dim)]).reshape(1,-1)
 # var_coeff = get_sig_variance(signature,word_concatenate_shuffle_dict,dim,level)
 
-mean_weights_list = [np.array([integration_functional_coeff(sig,dim,level,i) for i in range(dim)]).reshape(1,-1) for sig in signature_list]
+mean_weights_list = [np.array([integration_functional_coeff(sig,dim,level,i) for i in range(dim)]).reshape(1,-1) for sig in signature_list] # change dim here for hoff
 var_coeff_list = [get_sig_variance(sig,word_concatenate_shuffle_dict,dim,level) for sig in signature_list]
 weights_sum_list = [get_weights_sum_coeff(sig,dim,level) for sig in signature_list]
 

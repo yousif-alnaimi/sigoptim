@@ -275,16 +275,22 @@ def squared_integration_functional(signature,word_operation_dict,dim,level,m,n):
                 weights[ii[0],ii[1]] = es
     return weights
 
-def get_sig_variance(signature,word_operation_dict,dim,level):
+def get_sig_variance(signature,word_operation_dict,dim,level,hoff=False):
     """ Get the coefficeints of total variance by block maztrixs (X2_ij)_{1<= i,j <= d}
         Hence the total square of the return is a.T@X2@a, where a_p(w) is the collection 
         of coefficeints of w."""
     sig_len = length_of_signature(dim,level)
     weights = np.zeros((sig_len*dim,sig_len*dim))
-    for m in range(dim):
-        for n in range(dim):
-            weights[m*sig_len:(m+1)*sig_len,n*sig_len:(n+1)*sig_len] = squared_integration_functional(signature,word_operation_dict,dim,level,m,n)
-    return weights
+    if hoff:
+        for m in range(dim, 2*dim):
+            for n in range(dim, 2*dim):
+                weights[m*sig_len:(m+1)*sig_len,n*sig_len:(n+1)*sig_len] = squared_integration_functional(signature,word_operation_dict,dim,level,m,n)
+        return weights
+    else:
+        for m in range(dim):
+            for n in range(dim):
+                weights[m*sig_len:(m+1)*sig_len,n*sig_len:(n+1)*sig_len] = squared_integration_functional(signature,word_operation_dict,dim,level,m,n)
+        return weights
         
 
 @jit(nopython=True,parallel=True)
@@ -326,18 +332,28 @@ def get_weights_coeff(signature,m,dim,level):
     return coeff
 
 
-def HoffLeadLag(paths: np.ndarray) -> np.ndarray:
+def HoffLeadLag(paths: np.ndarray, time_aug: bool=False) -> np.ndarray:
     """
     Performs Hoff lead-lag transformation on a bank of paths. Sends N x l x d to N x 4l + 1 x 2d.
 
     :param paths:   Bank to have Hoff lead-lag applied to
+    :time_aug:      Whether the paths are time augmented
     :return:        Hoff lead-lag transformed paths
     """
+    if time_aug:
+        paths = paths[:, :, 1:]
+
+
     _r = np.repeat(paths, 4, axis=1)
     _cpath = np.concatenate([_r[:, :-5], _r[:, 5:]], axis=2)
     _start = np.expand_dims(np.c_[_r[:, 0], _r[:, 0]], 1)
+    hoff_paths = np.concatenate([_start, _cpath], axis=1)
 
-    return np.concatenate([_start, _cpath], axis=1)
+    time_steps = hoff_paths.shape[1]
+    n_samples = hoff_paths.shape[0]
+
+    time_inds = np.expand_dims(np.stack([np.linspace(0,1,time_steps) for _ in range(n_samples)], axis=0), axis=2)
+    return np.concatenate((time_inds, hoff_paths), axis=2)
 
 
 def subtract_first_row(paths: np.ndarray) -> np.ndarray:
