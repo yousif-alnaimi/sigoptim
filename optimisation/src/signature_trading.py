@@ -5,10 +5,14 @@ import sympy as sym
 import mogptk
 import torch
 from .transformations import *
-
+from copy import copy, deepcopy
+import time
 from .free_lie_algebra import *
 from .optimisation.signature import *
 from .helper_functions.signature_helper_functions import get_signature_weights, shift, get_signature_values
+
+from tqdm import tqdm
+get_weights_ell = copy(get_weights)
 
 # The signature trading part is from Zacharia Issa. Please see the `mean-variacne.ipynb` file for detailed explanation.
 # This module merges the code into several classes and also integrate the Gaussian Process with Zach's code.
@@ -64,16 +68,57 @@ class _transformation:
 
         self.f = lambda x: shift(x, dim, int(_transformations["LeadLag"] + _transformations["HoffLeadLag"]), int(_transformations["AddTime"]))
 
+
+def shuffle_power(ell, power):
+    """
+    Shuffle product of a linear functional with itself power times
+
+    :param ell:     Linear functional
+    :param power:   Power to shuffle to
+    :return:        Shuffled linear functional
+    """
+    res = deepcopy(ell)
+    for _ in range(power - 1):
+        # print(type(res))
+        res = shuffleProduct(res, ell)
+    return res
+
+def shuffle_softmax(ells, truncate=5):
+    """
+    Shuffle product of a linear functional with itself truncated times
+
+    :param ell:     Linear functional
+    :param truncate: Number of times to shuffle
+    :return:        Shuffled linear functional
+    """
+    if isinstance(ells, list):
+        ells_ = []
+        for ell in ells:
+            res = ell
+            for i in range(2, truncate + 1):
+                # print(type(res))
+                res += shuffle_power(res, i) *(1/np.math.factorial(i))
+            ells_.append(res)
+        return ells_
+    else:
+        res = ells
+        for i in range(2, truncate + 1):
+            # print(type(res))
+            res += shuffle_power(res, i) *(1/np.math.factorial(i))
+        return res
+
+
 class _pre_get_funcs:
-    def __init__(self,dim,n_terms,ell_coeffs):
+    def __init__(self,dim,n_terms,ell_coeffs, default_truncate):
         self.dim = dim
         self.n_terms = n_terms
         self.ell_coeffs = ell_coeffs
+        self.truncate = default_truncate
 
     # Set the various functions used in the optimisation
     def set_signature_variance_func(self,ells, esig, shift):
         # Lambdify optimising functional
-        variance_polynomial_ = portfolio_variance(ells, esig, shift)
+        variance_polynomial_ = portfolio_variance(shuffle_softmax(ells, self.truncate), esig, shift)
         variance_polynomial  = sym.lambdify([self.ell_coeffs], variance_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -84,7 +129,7 @@ class _pre_get_funcs:
 
     def set_signature_return_func(self,ells, esig, shift):
 
-        return_polynomial_ = portfolio_return(ells, esig, shift)
+        return_polynomial_ = portfolio_return(shuffle_softmax(ells, self.truncate), esig, shift)
         return_polynomial  = sym.lambdify([self.ell_coeffs], return_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -95,7 +140,7 @@ class _pre_get_funcs:
 
     def set_signature_weight_sum_func(self,ells, esig):
 
-        weight_sum_polynomial_= sum_weights(ells, esig)
+        weight_sum_polynomial_= sum_weights(shuffle_softmax(ells, self.truncate), esig)
         weight_sum_polynomial = sym.lambdify([self.ell_coeffs], weight_sum_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -106,7 +151,7 @@ class _pre_get_funcs:
 
     def set_signature_individual_weight_func(self,ells, esig):
         # Individual weight constraints are a little tougher, we need to extract each \ell_i
-        individual_weights_polynomial_ = get_weights(ells, esig)
+        individual_weights_polynomial_ = get_weights(shuffle_softmax(ells, self.truncate), esig)
         individual_weights_polynomial  = sym.lambdify([self.ell_coeffs], individual_weights_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -114,11 +159,23 @@ class _pre_get_funcs:
             return individual_weights_polynomial(a)
 
         return individual_weights_function
+    
+
 
 class _get_funcs:
-    def __init__(self,dim,level,ES_computer,transformation=None,*o,**kwarg):
+    def __init__(self,dim,level,ES_computer,truncate,transformation=None,*o,**kwarg):
         ell_coeffs  = [make_ell_coeffs(dim, level, "^" + str(i+1)) for i in range(dim)]
+        # print([i * c for i,c in enumerate(ell_coeffs)])
+        # print(ell_coeffs[0])
         ells        = [make_linear_functional(ell_coeff, dim, level) for ell_coeff in ell_coeffs]
+        # print(ells[0])
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        # print(ells[0], type(ells[0]))
+        # shuf = shuffleProduct(ells[0], ells[0])
+        # print(shuf, type(shuf))
+        # print(shuf*(.5))
+        # print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        # ells = [shuffle_softmax(ell, 2) for ell in tqdm(ells)]
         self.n_terms     = len(ell_coeffs[0])
         self.transformation = transformation
         if transformation:
@@ -127,14 +184,18 @@ class _get_funcs:
             self.shift = lambda i: i+1
 # Build the expected signature (from data, for now). normalise prices to start at 1
         esig    = ES_computer(2*(level+1),*o,**kwarg)
+        print("sigs")
         esig_ll = ES_computer(2*(level+1),*o,**kwarg,transformation=transformation)
+        print("SIGS")
         
 
-        _get_funcs = _pre_get_funcs(dim,self.n_terms,ell_coeffs)
+        _get_funcs = _pre_get_funcs(dim,self.n_terms,ell_coeffs, truncate)
+        print("GET FUNCS")
         variance_function           = _get_funcs.set_signature_variance_func(ells, esig_ll, self.shift)
         return_function             = _get_funcs.set_signature_return_func(ells, esig_ll, self.shift)
         weight_sum_function         = _get_funcs.set_signature_weight_sum_func(ells, esig)
         individual_weights_function = _get_funcs.set_signature_individual_weight_func(ells, esig)
+        print("GOT FUNCS")
         self.funcs    = [variance_function, return_function, weight_sum_function, individual_weights_function]
 
 class ExpectedSignature():
@@ -143,6 +204,31 @@ class ExpectedSignature():
 
     def ExpectedSignature(self,T1=0,T2=1,transformation=None):
         pass
+
+
+class OriginalSignature(ExpectedSignature):
+    def __init__(self, data):
+        self.data = data
+
+    def _get_paths(self):
+        self.paths = np.expand_dims(self.data.to_numpy(), 0)
+
+    def ExpectedSignature(self,level,transformation=None):
+        """
+        Arguments:
+        -----------------
+        transformation=None: signature_trading._transformation
+            if specified, the paths would firstly be transformed according to the transformation
+        
+        Returns:
+        -----------------
+        list
+            carries the estimated expected signature of the Gaussian Process
+        """
+        if transformation:
+            return ES(transformation.transformations(self.paths), max(level, 1))
+        else:
+            return ES(self.paths, max(level, 1))
 
 class GaussianProcessExpectedSiganture(ExpectedSignature):
     """ Estimate its expected signature from a trained Gaussian Process Model.
@@ -247,7 +333,7 @@ class SignatureTrading:
     get_weights(self,price,interval=(0.05,0.15)):
         compute the optimized sig-weights of each assets
     """
-    def __init__(self,data,es:ExpectedSignature,level=2):
+    def __init__(self,data,es:ExpectedSignature,sig:ExpectedSignature,level=2, truncate=5):
         self.data = data
 
         self.es = es
@@ -256,9 +342,12 @@ class SignatureTrading:
         self.ellstars = None
         self.count = 0
         self.level = level
+        self.truncate = truncate
+        self.sig = sig
 
     def _get_funcs(self,transformation:_transformation=None):
-        self.funcs = _get_funcs(self.es.dim,self.level,self.es.ExpectedSignature,transformation=transformation)
+        self.funcs = _get_funcs(self.es.dim,self.level,self.es.ExpectedSignature,self.truncate,transformation=transformation)
+        self.funcs2 = _get_funcs(self.es.dim,self.level,self.sig.ExpectedSignature,self.truncate, transformation=transformation)
 
     def _get_coeffs(self,interval=(0.05,0.15)):
         """
@@ -282,7 +371,7 @@ class SignatureTrading:
             weight_lb_cons   = [{"type": "ineq", "fun": lambda w, ind=i: individual_weights_function(w)[ind]} for i in range(N)]
             weight_ub_cons   = [{"type": "ineq", "fun": lambda w, ind=i: 1. - individual_weights_function(w)[ind]} for i in range(N)]
 
-            for pnl in expected_pnls:
+            for pnl in tqdm(expected_pnls):
                 w0 = np.ones((N, n_terms), dtype=np.float64)/(N*n_terms)
 
                 pnl_con  = [{'type': 'eq', 'fun': lambda w: return_function(w) - pnl}]
@@ -311,6 +400,7 @@ class SignatureTrading:
         else:
             index = np.argmin(sig_var)
             self.ellstars = ellstars[index]
+            print("Warning: No expected return in the range, the lowest variance is chosen.")
             return sig_pnl,sig_var
         
     # consider using signatory for concatenating signatures
@@ -333,9 +423,32 @@ class SignatureTrading:
         else:
             self.normed_price = np.concatenate((self.normed_price,price.reshape(1,-1)/self.es.train_mean))
         self.count += 1
-        signatures_ = get_signature_values(self.normed_price[np.newaxis, :, :], self.es.level)
-        es_weights = get_signature_weights(self.ellstars,signatures_, self.es.dim, self.funcs.n_terms)
-        return es_weights
+        signatures_ = get_signature_values(self.normed_price[np.newaxis, :, :], self.level)
+        # es_weights = get_signature_weights(self.ellstars,signatures_, self.es.dim, self.funcs.n_terms)
+        # ell_coeffs = make_ell_coeffs(self.es.dim, self.level)
+        # ell_coeffs  = [make_ell_coeffs(self.es.dim, self.level, "^" + str(i+1)) for i in range(self.es.dim)]
+        # # print(len(ell_coeffs), len(self.ellstars))
+        # print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        # # ell_coeffs2 = [self.ellstars[i] * ell_coeffs[i] for i in range(len(ell_coeffs))]
+        # ells2 = [make_linear_functional(ell_coeff, self.es.dim, self.level) for ell_coeff in ell_coeffs]
+        # ells3 = [shuffle_softmax(ell, self.truncate) for ell in ells2]
+        # # print(len(ells3))
+        # print(len(self.ellstars))
+        # individual_weights_polynomial_ = get_weights_ell(shuffle_softmax(ells3, self.truncate), signatures_)
+        # individual_weights_polynomial  = sym.lambdify([ell_coeffs], individual_weights_polynomial_)
+        print("bweioafuiowafiouwafniowaf")
+        # @wrapper_factory(N_assets=self.es.dim, n_terms=self.es.n_terms)
+        # def individual_weights_function(a):
+        #     return individual_weights_polynomial(a)
+
+        # print(type(individual_weights_function(self.ellstars)))
+        f = self.funcs.funcs[3]
+        f2 = self.funcs2.funcs[3]
+        print("ionfqenweioaioaneaiofnwafnio")
+        # time.sleep(.1)
+        print(f(self.ellstars))
+        print("real:")
+        return f2(self.ellstars)
     
 def trading_strategies(capital,weights,price,regularisation="ReLU"):
     """ Compute the number of shares to hold for each assets.

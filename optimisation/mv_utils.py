@@ -243,7 +243,7 @@ def concatenate_a_letter_to_words(x,signature,dim,m):
     return (i,result)
 
 @jit(nopython=True,parallel=True)
-def squared_integration_functional(signature,word_operation_dict,dim,level,m,n):
+def squared_integration_functional(signature,word_operation_dict,dim,level,m,n, hoff=False):
     """ Return the coefficeints matrix of a^m_p(w)a^n_p(w) for w in W^d_m(A), in 
         (l_m \prec m) * (l_n \prec n) where  W^d_m(A) is the set of words of 
         dimension d up to length m. 
@@ -253,8 +253,12 @@ def squared_integration_functional(signature,word_operation_dict,dim,level,m,n):
         word_operation_dict: dict   a dictionary containing expression of w_i, w_j with keywords 'ij'
         m,n: int    the specific channel 
         """
-    sig_len = length_of_signature(dim,level) # length of signature at (level, dim)
-    weights = np.zeros((sig_len,sig_len)) # (l_m < m) * (l_n < n) = sum weights_ij (a^m_(w_1) a^n_(w_2))
+    if hoff:
+        sig_len = length_of_signature(dim,level) # length of signature at (level, dim)
+        weights = np.zeros((sig_len,sig_len)) # (l_m < m) * (l_n < n) = sum weights_ij (a^m_(w_1) a^n_(w_2))
+    else:
+        sig_len = length_of_signature(dim,level) # length of signature at (level, dim)
+        weights = np.zeros((sig_len,sig_len)) # (l_m < m) * (l_n < n) = sum weights_ij (a^m_(w_1) a^n_(w_2))
     for i in range(level):
         for j in range(level):
             if i+j ==0:
@@ -279,14 +283,17 @@ def get_sig_variance(signature,word_operation_dict,dim,level,hoff=False):
     """ Get the coefficeints of total variance by block maztrixs (X2_ij)_{1<= i,j <= d}
         Hence the total square of the return is a.T@X2@a, where a_p(w) is the collection 
         of coefficeints of w."""
-    sig_len = length_of_signature(dim,level)
-    weights = np.zeros((sig_len*dim,sig_len*dim))
+
     if hoff:
+        sig_len = length_of_signature(dim,level)
+        weights = np.zeros((sig_len*dim,sig_len*dim))
         for m_ind, m in enumerate(range(dim, 2*dim)):
             for n_ind, n in enumerate(range(dim, 2*dim)):
-                weights[m_ind*sig_len:(m_ind+1)*sig_len,n_ind*sig_len:(n_ind+1)*sig_len] = squared_integration_functional(signature,word_operation_dict,dim,level,m,n)
+                weights[m_ind*sig_len:(m_ind+1)*sig_len,n_ind*sig_len:(n_ind+1)*sig_len] = squared_integration_functional(signature,word_operation_dict,dim,level,m,n, hoff = True)
         return weights
     else:
+        sig_len = length_of_signature(dim,level)
+        weights = np.zeros((sig_len*dim,sig_len*dim))
         for m in range(dim):
             for n in range(dim):
                 weights[m*sig_len:(m+1)*sig_len,n*sig_len:(n+1)*sig_len] = squared_integration_functional(signature,word_operation_dict,dim,level,m,n)
