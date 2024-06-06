@@ -212,6 +212,8 @@ class OriginalSignature(ExpectedSignature):
 
     def _get_paths(self):
         self.paths = np.expand_dims(self.data.to_numpy(), 0)
+        self.train_mean = np.mean(self.paths[:,0],axis=0)
+        self.paths/=self.train_mean
 
     def ExpectedSignature(self,level,transformation=None):
         """
@@ -424,7 +426,7 @@ class SignatureTrading:
             self.normed_price = np.concatenate((self.normed_price,price.reshape(1,-1)/self.es.train_mean))
         self.count += 1
         signatures_ = get_signature_values(self.normed_price[np.newaxis, :, :], self.level)
-        # es_weights = get_signature_weights(self.ellstars,signatures_, self.es.dim, self.funcs.n_terms)
+        es_weights = get_signature_weights(self.ellstars,signatures_, self.es.dim, self.funcs.n_terms)
         # ell_coeffs = make_ell_coeffs(self.es.dim, self.level)
         # ell_coeffs  = [make_ell_coeffs(self.es.dim, self.level, "^" + str(i+1)) for i in range(self.es.dim)]
         # # print(len(ell_coeffs), len(self.ellstars))
@@ -436,7 +438,7 @@ class SignatureTrading:
         # print(len(self.ellstars))
         # individual_weights_polynomial_ = get_weights_ell(shuffle_softmax(ells3, self.truncate), signatures_)
         # individual_weights_polynomial  = sym.lambdify([ell_coeffs], individual_weights_polynomial_)
-        print("bweioafuiowafiouwafniowaf")
+        # print("bweioafuiowafiouwafniowaf")
         # @wrapper_factory(N_assets=self.es.dim, n_terms=self.es.n_terms)
         # def individual_weights_function(a):
         #     return individual_weights_polynomial(a)
@@ -444,10 +446,15 @@ class SignatureTrading:
         # print(type(individual_weights_function(self.ellstars)))
         f = self.funcs.funcs[3]
         f2 = self.funcs2.funcs[3]
-        print("ionfqenweioaioaneaiofnwafnio")
+        # print("ionfqenweioaioaneaiofnwafnio")
         # time.sleep(.1)
-        print(f(self.ellstars))
-        print("real:")
+        w = f(self.ellstars)
+        print("Expected:")
+        print(w)
+        print(w.sum())
+        print("Old Real:")
+        print(es_weights)
+        print("Real:")
         return f2(self.ellstars)
     
 def trading_strategies(capital,weights,price,regularisation="ReLU"):

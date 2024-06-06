@@ -18,7 +18,7 @@ if torch.cuda.is_available():
 
 dim = 2
 level = 2
-softmax_truncate = 2
+softmax_truncate = 1
 
 training_size = 0.95
 Q = dim
@@ -35,6 +35,7 @@ df.index = pd.to_datetime(df.index, format="%d/%m/%y")
 
 df2 = df[names].loc[(df.index > pd.Timestamp('2017-01-01')) & (df.index < pd.Timestamp('2018-01-01'))]
 df2.loc[:,'time'] = np.linspace(0, 1, len(df2))
+# df2 = df2 - df2.iloc[0].squeeze()
 
 gpm_dataset = mogptk.LoadDataFrame(df2, x_col='time', y_col=names)
 
