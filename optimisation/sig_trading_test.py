@@ -18,7 +18,7 @@ if torch.cuda.is_available():
 
 dim = 2
 level = 2
-softmax_truncate = 1
+softmax_truncate = 2
 
 training_size = 0.95
 Q = dim
