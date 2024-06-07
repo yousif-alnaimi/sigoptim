@@ -20,7 +20,7 @@ if torch.cuda.is_available():
 dim = 2
 level = 2
 offset = 1
-softmax_truncate = 1
+softmax_truncate = 2
 frontier_interval = (0.05, 0.3)
 
 training_size = 0.95
@@ -89,9 +89,9 @@ print(3)
 pnl_list, var_list, ellstars_list = sig_trading._get_coeffs(interval=frontier_interval, export_ellstars=True)
 print(4)
 old_real_weights, exp_weights, real_weights = sig_trading.get_weights(sig_trading.data.loc[:,sig_trading.es.names].to_numpy(), interval=frontier_interval, ellstars_list=ellstars_list)
-# print(real_weights)
-# print("Sum of weights:")
-# print([w.sum() for w in real_weights])
+print(real_weights)
+print("Sum of weights:")
+print([w.sum() for w in real_weights])
 print("TIME TAKEN")
 print(time.time()-start)#
 

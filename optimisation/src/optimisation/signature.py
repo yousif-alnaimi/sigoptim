@@ -77,22 +77,6 @@ def make_ell_coeffs(N, n_, id_=""):
     return sym.symbols(a0 + ais)
 
 
-def integrate_linear_functional(ell, i, sig, shift):
-    """
-    Performs the operation (l_i \preq f(i), S(X)) for each l_i.
-
-    :param ell:     Linear functional l_i \in (l_1, \dots, l_d)
-    :param i:       Index to integrate
-    :param sig:     Signature to integrate against
-    :param shift:   Shift function f(i)
-    :return:        Integral as described above
-    """
-    # d      = get_max_letter(ell)
-    fi     = shift(i) #, d)
-    lpreqi = rightHalfShuffleProduct(ell, word2Elt(f'{fi}'))
-    return dotprod(lpreqi, sig)
-
-
 def get_weights(ells, sig):
     """
     Performs the calculation w = ((l_1, S(X)), (l_2, S(x)),..., (l_d, S(x)))
@@ -103,6 +87,14 @@ def get_weights(ells, sig):
     weights = np.array([dotprod(ell, sig) for ell in ells])
     return weights
 
+
+def get_weights_softmax(ells, sig):
+    weights = np.array([1 + dotprod(ell, sig) for ell in ells])
+    return weights / weights.sum()
+
+
+def sum_weights_softmax(ells, sig):
+    return sum(get_weights_softmax(ells, sig))
 
 # \sum_{i=1}^N (l_i, S(X))
 def sum_weights(ells, sig):
@@ -136,6 +128,22 @@ def variance_linear_functional(ell1, ell2, i, j, shift):
     return shuffleProduct(lpreqi, lpreqj)
 
 
+def integrate_linear_functional(ell, i, sig, shift):
+    """
+    Performs the operation (l_i \preq f(i), S(X)) for each l_i.
+
+    :param ell:     Linear functional l_i \in (l_1, \dots, l_d)
+    :param i:       Index to integrate
+    :param sig:     Signature to integrate against
+    :param shift:   Shift function f(i)
+    :return:        Integral as described above
+    """
+    # d      = get_max_letter(ell)
+    fi     = shift(i) #, d)
+    lpreqi = rightHalfShuffleProduct(ell, word2Elt(f'{fi}'))
+    return dotprod(lpreqi, sig)
+
+
 def portfolio_return(ells, sig, shift):
     """
     Calculates \sum_{i=1}^N (l_i \preq f(i), S(\hat X^LL)), i.e. the portfolio return
@@ -150,6 +158,90 @@ def portfolio_return(ells, sig, shift):
         mu += integrate_linear_functional(ell, dim, sig, shift)
 
     return mu
+
+
+def integrate_linear_functional_softmax(ells, ell, i, sig, shift):
+    """
+    Performs the operation (l_i \preq f(i), S(X)) for each l_i.
+
+    :param ell:     Linear functional l_i \in (l_1, \dots, l_d)
+    :param i:       Index to integrate
+    :param sig:     Signature to integrate against
+    :param shift:   Shift function f(i)
+    :return:        Integral as described above
+    """
+    # d      = get_max_letter(ell)
+    fi     = shift(i) #, d)
+    lpreqi = rightHalfShuffleProduct(ell, word2Elt(f'{fi}'))
+    lpreqi_sig = 1 + dotprod(lpreqi, sig)
+    all_lpreqi_sig = sum([1 + dotprod(rightHalfShuffleProduct(ell_, word2Elt(f'{shift(i)}')), sig) for ell_ in ells])
+    return lpreqi_sig / all_lpreqi_sig
+
+
+def portfolio_return_softmax(ells, sig, shift):
+    """
+    Calculates the portfolio return with softmax truncation
+
+    :param ells:    l = (l_1,..., l_d)
+    :param sig:     S(x)
+    :param shift:   f(i) shift operator
+    :return:        Portfolio return
+    """
+    mu = 0
+
+    for dim, ell in enumerate(ells):
+        mu += integrate_linear_functional_softmax(ells, ell, dim, sig, shift)
+
+    return mu
+
+
+def variance_linear_functional_softmax(ells, ell1, ell2, i, j, shift, sig):
+    """
+    Calculates the quadratic term in the calculation for the variance with softmax truncation
+
+    :param ells:    l = (l_1,..., l_d)
+    :param ell1:    l_i
+    :param ell2:    l_j
+    :param i:       Index i
+    :param j:       Index j
+    :param shift:   Function f which appropriately shifts to the correct index
+    :return:        (l_i \preq f(i)) * (l_j \preq f(j))
+    """
+    # d = get_max_letter(ell1)
+    fi = shift(i) #, d)
+    fj = shift(j) #, d)
+    lpreqi = rightHalfShuffleProduct(ell1, word2Elt(f'{fi}'))
+    lpreqj = rightHalfShuffleProduct(ell2, word2Elt(f'{fj}'))
+
+    lpreqi_lpreqj = shuffleProduct(lpreqi, lpreqj)
+    li_lj_sig = 1 + dotprod(lpreqi_lpreqj, sig)
+    divisor = 0
+    for ell in ells:
+        elli = rightHalfShuffleProduct(ell, word2Elt(f'{fi}'))
+        for ell_ in ells:
+            ellj = rightHalfShuffleProduct(ell_, word2Elt(f'{fj}'))
+            elli_ellj = shuffleProduct(elli, ellj)
+            divisor += 1 + dotprod(elli_ellj, sig)
+
+    return li_lj_sig / divisor
+
+def portfolio_variance_softmax(ells, sig, shift):
+    """
+    Calculates the portfolio variance associated to the signature trading problem with softmax truncation
+
+    :param ells:        l = (l_1,..., l_d)
+    :param sig:         S(x)
+    :param shift:       f(i) Shift operator
+    :return:            Portfolio variance
+    """
+    var = 0
+    for dim1, ell1 in enumerate(ells):
+        for dim2, ell2 in enumerate(ells):
+            crossvar = variance_linear_functional_softmax(ells, ell1, ell2, dim1, dim2, shift, sig)
+            mean1    = integrate_linear_functional_softmax(ells, ell1, dim1, sig, shift)
+            mean2    = integrate_linear_functional_softmax(ells, ell2, dim2, sig, shift)
+            var     += crossvar - mean1*mean2
+    return var
 
 
 def portfolio_variance(ells, sig, shift):

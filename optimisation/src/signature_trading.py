@@ -118,7 +118,10 @@ class _pre_get_funcs:
     # Set the various functions used in the optimisation
     def set_signature_variance_func(self,ells, esig, shift):
         # Lambdify optimising functional
-        variance_polynomial_ = portfolio_variance(shuffle_softmax(ells, self.truncate), esig, shift)
+        if self.truncate == 1:
+            variance_polynomial_ = portfolio_variance(ells, esig, shift)
+        else:
+            variance_polynomial_ = portfolio_variance_softmax(shuffle_softmax(ells, self.truncate), esig, shift)
         variance_polynomial  = sym.lambdify([self.ell_coeffs], variance_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -128,8 +131,10 @@ class _pre_get_funcs:
         return variance_function
 
     def set_signature_return_func(self,ells, esig, shift):
-
-        return_polynomial_ = portfolio_return(shuffle_softmax(ells, self.truncate), esig, shift)
+        if self.truncate == 1:
+            return_polynomial_ = portfolio_return(ells, esig, shift)
+        else:
+            return_polynomial_ = portfolio_return_softmax(shuffle_softmax(ells, self.truncate), esig, shift)
         return_polynomial  = sym.lambdify([self.ell_coeffs], return_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -139,8 +144,10 @@ class _pre_get_funcs:
         return return_function
 
     def set_signature_weight_sum_func(self,ells, esig):
-
-        weight_sum_polynomial_= sum_weights(shuffle_softmax(ells, self.truncate), esig)
+        if self.truncate == 1:
+            weight_sum_polynomial_= sum_weights(ells, esig)
+        else:
+            weight_sum_polynomial_= sum_weights_softmax(shuffle_softmax(ells, self.truncate), esig)
         weight_sum_polynomial = sym.lambdify([self.ell_coeffs], weight_sum_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -151,7 +158,10 @@ class _pre_get_funcs:
 
     def set_signature_individual_weight_func(self,ells, esig):
         # Individual weight constraints are a little tougher, we need to extract each \ell_i
-        individual_weights_polynomial_ = get_weights(shuffle_softmax(ells, self.truncate), esig)
+        if self.truncate == 1:
+            individual_weights_polynomial_ = get_weights(ells, esig)
+        else:
+            individual_weights_polynomial_ = get_weights_softmax(shuffle_softmax(ells, self.truncate), esig)
         individual_weights_polynomial  = sym.lambdify([self.ell_coeffs], individual_weights_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -335,7 +345,7 @@ class SignatureTrading:
     get_weights(self,price,interval=(0.05,0.15)):
         compute the optimized sig-weights of each assets
     """
-    def __init__(self,data,es:ExpectedSignature,sig:ExpectedSignature,level=2, truncate=5):
+    def __init__(self,data,es:ExpectedSignature,sig:ExpectedSignature,level=2, truncate=1):
         self.data = data
 
         self.es = es
