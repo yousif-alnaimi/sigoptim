@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import pandas as pd
 import warnings
+import matplotlib.pyplot as plt
 
 warnings.simplefilter("ignore")
 
@@ -18,7 +19,9 @@ if torch.cuda.is_available():
 
 dim = 2
 level = 2
-softmax_truncate = 2
+offset = 1
+softmax_truncate = 1
+frontier_interval = (0.05, 0.3)
 
 training_size = 0.95
 Q = dim
@@ -29,7 +32,7 @@ method = 'Adam'
 
 # stocks
 df      = pd.read_csv('./stocks.csv', index_col=0)
-names   = df.columns[:dim].to_list()
+names   = df.columns[offset:dim+offset].to_list()
 # format needs to be specified as default parsing is American format
 df.index = pd.to_datetime(df.index, format="%d/%m/%y")
 
@@ -83,11 +86,26 @@ sig_trading = SignatureTrading(df2, es, sig, level, softmax_truncate)
 print(2)
 sig_trading._get_funcs(transformation)
 print(3)
-sig_trading._get_coeffs()
+pnl_list, var_list, ellstars_list = sig_trading._get_coeffs(interval=frontier_interval, export_ellstars=True)
 print(4)
-weights = sig_trading.get_weights(sig_trading.data.loc[:,sig_trading.es.names].to_numpy())
-print(weights)
-print("Sum of weights:")
-print(weights.sum())
+old_real_weights, exp_weights, real_weights = sig_trading.get_weights(sig_trading.data.loc[:,sig_trading.es.names].to_numpy(), interval=frontier_interval, ellstars_list=ellstars_list)
+# print(real_weights)
+# print("Sum of weights:")
+# print([w.sum() for w in real_weights])
 print("TIME TAKEN")
-print(time.time()-start)
+print(time.time()-start)#
+
+def relu_scale(x):
+    new_x = np.maximum(x, 0)
+    return new_x / new_x.sum()
+
+relu_real_weights = np.array([relu_scale(w) for w in real_weights])
+# print(relu_real_weights)
+# print([w.sum() for w in relu_real_weights])
+print(relu_real_weights.shape)
+
+fig, axs = plt.subplots(2, figsize=(10, 10))
+axs[0].plot(var_list, pnl_list)
+axs[1].plot(relu_real_weights[:,0], pnl_list)
+axs[1].plot(relu_real_weights[:,1], pnl_list)
+plt.show()
