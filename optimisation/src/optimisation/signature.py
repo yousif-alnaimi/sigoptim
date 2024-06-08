@@ -3,6 +3,7 @@ import numpy as np
 from itertools import product
 import sympy as sym
 import torch
+from tqdm import tqdm
 
 from src.free_lie_algebra import wordIter, word2Elt, rightHalfShuffleProduct, dotprod, shuffleProduct
 
@@ -30,15 +31,23 @@ def ES(X, n_,use_gpu=0):
     N, l, d     = X.shape
     n_sig_terms = sum([d**i for i in range(1, n_ + 1)])
 
-    empty_word = [1.]
+    empty_word = np.array([1.])
 
     if (n_ == 0) or (l in [0, 1]):
         esigX = np.array(empty_word + [np.nextafter(0, 1) for _ in range(n_sig_terms)])
         n_ += (n_ == 0)
 
     else:
-        sigX  = signatory.signature(X, n_)
-        esigX = np.array(empty_word + list(torch.mean(sigX, axis=0).cpu()))
+        sig_list = []
+        for i in tqdm(range(N)):
+            sig_list.append(signatory.signature(X[i].unsqueeze(0), n_))
+        # sigX  = signatory.signature(X, n_)
+        sigX = torch.cat(sig_list, dim=0)
+        mean_sigX = torch.mean(sigX, axis=0).cpu().numpy()
+        print(mean_sigX.shape)
+        esigX = np.concatenate([empty_word, mean_sigX])
+        # esigX2 = np.array(empty_word + list(torch.mean(sigX, axis=0).cpu()))
+        # print(np.allclose(esigX, esigX2))
 
     return make_linear_functional(esigX, d, n_)
 

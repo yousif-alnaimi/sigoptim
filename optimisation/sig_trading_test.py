@@ -17,11 +17,12 @@ device = torch.device("cuda")
 if torch.cuda.is_available():
    mogptk.use_gpu(0)
 
-dim = 2
+dim = 3
 level = 2
 offset = 1
 softmax_truncate = 1
 frontier_interval = (0.05, 0.25)
+sample_dict = {2: 1000, 3:250, 4:10}
 
 training_size = 0.95
 Q = dim
@@ -72,14 +73,18 @@ transformation = _transformation(dim, 1, OrderedDict(
                 {"AddTime": True, "TranslatePaths": True, "ScalePaths": False, "LeadLag": False, "HoffLeadLag":True}))
     
 es = GaussianProcessExpectedSiganture(gpm)
-es._get_paths(time_step=len(df2.index))
+es._get_paths(
+    # time_step=len(df2.index),
+    n=sample_dict[dim],
+    )
 
 # print(df2.loc[:,es.names])
 # print(df2.loc[:,es.names].to_numpy())
 # print(df2.loc[:,es.names].to_numpy().shape)
 # print(np.expand_dims(df2.loc[:,es.names].to_numpy(), 0).shape)
-sig = OriginalSignature(df2.loc[:,es.names])
-sig._get_paths()
+# sig = OriginalSignature(df2.loc[:,es.names])
+# sig._get_paths()
+sig = None
 
 print(1)
 sig_trading = SignatureTrading(df2, es, sig, level, softmax_truncate)
@@ -88,7 +93,7 @@ sig_trading._get_funcs(transformation)
 print(3)
 pnl_list, var_list, ellstars_list = sig_trading._get_coeffs(interval=frontier_interval, export_ellstars=True)
 print(4)
-old_real_weights, exp_weights, real_weights = sig_trading.get_weights(sig_trading.data.loc[:,sig_trading.es.names].to_numpy(), interval=frontier_interval, ellstars_list=ellstars_list)
+real_weights = sig_trading.get_weights(sig_trading.data.loc[:,sig_trading.es.names].to_numpy(), interval=frontier_interval, ellstars_list=ellstars_list)
 print(real_weights)
 print("Sum of weights:")
 print([w.sum() for w in real_weights])
@@ -106,6 +111,9 @@ print(relu_real_weights.shape)
 
 fig, axs = plt.subplots(2, figsize=(10, 10))
 axs[0].plot(var_list, pnl_list)
-axs[1].plot(relu_real_weights[:,0], pnl_list)
-axs[1].plot(relu_real_weights[:,1], pnl_list)
+for i in range(dim):
+    axs[1].plot(relu_real_weights[:,i], pnl_list, label=f"Asset {i}")
+axs[1].legend()
+# axs[1].plot(relu_real_weights[:,0], pnl_list)
+# axs[1].plot(relu_real_weights[:,1], pnl_list)
 plt.show()

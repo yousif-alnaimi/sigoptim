@@ -364,7 +364,7 @@ class SignatureTrading:
 
     def _get_funcs(self,transformation:_transformation=None):
         self.funcs = _get_funcs(self.es.dim,self.level,self.es.ExpectedSignature,self.truncate,transformation=transformation)
-        self.funcs2 = _get_funcs(self.es.dim,self.level,self.sig.ExpectedSignature,self.truncate, transformation=transformation)
+        # self.funcs2 = _get_funcs(self.es.dim,self.level,self.sig.ExpectedSignature,self.truncate, transformation=transformation)
 
     def _get_coeffs(self,interval=(0.05,0.15),export_ellstars=False):
         """
@@ -448,8 +448,8 @@ class SignatureTrading:
         self.count += 1
 
         signatures_ = get_signature_values(self.normed_price[np.newaxis, :, :], self.level)
-        f = self.funcs.funcs[3]
-        f2 = self.funcs2.funcs[3]
+        # f = self.funcs.funcs[3]
+        # f2 = self.funcs2.funcs[3]
 
         if ellstars_list:
             es_weights_list = []
@@ -457,10 +457,11 @@ class SignatureTrading:
             f2_weights_list = []
             for i in range(len(ellstars_list)):
                 es_weights_list.append(get_signature_weights(ellstars_list[i],signatures_, self.es.dim, self.funcs.n_terms))
-                f_weights_list.append(f(ellstars_list[i]))
-                f2_weights_list.append(f2(ellstars_list[i]))
+                # f_weights_list.append(f(ellstars_list[i]))
+                # f2_weights_list.append(f2(ellstars_list[i]))
 
-            return es_weights_list, f_weights_list, f2_weights_list
+            # return es_weights_list, f_weights_list, f2_weights_list
+            return es_weights_list
         else:
             es_weights = get_signature_weights(self.ellstars,signatures_, self.es.dim, self.funcs.n_terms)
             # ell_coeffs = make_ell_coeffs(self.es.dim, self.level)
@@ -482,14 +483,15 @@ class SignatureTrading:
             # print(type(individual_weights_function(self.ellstars)))
             # print("ionfqenweioaioaneaiofnwafnio")
             # time.sleep(.1)
-            w = f(self.ellstars)
-            print("Expected:")
-            print(w)
-            print(w.sum())
-            print("Old Real:")
-            print(es_weights)
-            print("Real:")
-            return f2(self.ellstars)
+            # w = f(self.ellstars)
+            # print("Expected:")
+            # print(w)
+            # print(w.sum())
+            # print("Old Real:")
+            # print(es_weights)
+            # print("Real:")
+            # return f2(self.ellstars)
+            return es_weights
     
 def trading_strategies(capital,weights,price,regularisation="ReLU"):
     """ Compute the number of shares to hold for each assets.
