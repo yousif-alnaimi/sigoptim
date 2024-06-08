@@ -121,7 +121,8 @@ class _pre_get_funcs:
         if self.truncate == 1:
             variance_polynomial_ = portfolio_variance(ells, esig, shift)
         else:
-            variance_polynomial_ = portfolio_variance_softmax(shuffle_softmax(ells, self.truncate), esig, shift)
+            # variance_polynomial_ = portfolio_variance_softmax(shuffle_softmax(ells, self.truncate), esig, shift)
+            variance_polynomial_ = portfolio_variance(shuffle_softmax(ells, self.truncate), esig, shift)
         variance_polynomial  = sym.lambdify([self.ell_coeffs], variance_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -134,7 +135,8 @@ class _pre_get_funcs:
         if self.truncate == 1:
             return_polynomial_ = portfolio_return(ells, esig, shift)
         else:
-            return_polynomial_ = portfolio_return_softmax(shuffle_softmax(ells, self.truncate), esig, shift)
+            # return_polynomial_ = portfolio_return_softmax(shuffle_softmax(ells, self.truncate), esig, shift)
+            return_polynomial_ = portfolio_return(shuffle_softmax(ells, self.truncate), esig, shift)
         return_polynomial  = sym.lambdify([self.ell_coeffs], return_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -147,7 +149,8 @@ class _pre_get_funcs:
         if self.truncate == 1:
             weight_sum_polynomial_= sum_weights(ells, esig)
         else:
-            weight_sum_polynomial_= sum_weights_softmax(shuffle_softmax(ells, self.truncate), esig)
+            # weight_sum_polynomial_= sum_weights_softmax(shuffle_softmax(ells, self.truncate), esig)
+            weight_sum_polynomial_= sum_weights(shuffle_softmax(ells, self.truncate), esig)
         weight_sum_polynomial = sym.lambdify([self.ell_coeffs], weight_sum_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -161,7 +164,9 @@ class _pre_get_funcs:
         if self.truncate == 1:
             individual_weights_polynomial_ = get_weights(ells, esig)
         else:
-            individual_weights_polynomial_ = get_weights_softmax(shuffle_softmax(ells, self.truncate), esig)
+            # individual_weights_polynomial_ = get_weights_softmax(shuffle_softmax(ells, self.truncate), esig)
+            individual_weights_polynomial_ = get_weights(shuffle_softmax(ells, self.truncate), esig)
+            
         individual_weights_polynomial  = sym.lambdify([self.ell_coeffs], individual_weights_polynomial_)
 
         @wrapper_factory(N_assets=self.dim, n_terms=self.n_terms)
@@ -416,7 +421,10 @@ class SignatureTrading:
             index = np.argmin(sig_var)
             self.ellstars = ellstars[index]
             print("Warning: No expected return in the range, the lowest variance is chosen.")
-            return sig_pnl,sig_var
+            if export_ellstars:
+                return sig_pnl,sig_var,ellstars
+            else:
+                return sig_pnl,sig_var
         
     # consider using signatory for concatenating signatures
     def get_weights(self,price,interval=(0.05,0.15), ellstars_list=None):

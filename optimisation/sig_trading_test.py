@@ -20,8 +20,8 @@ if torch.cuda.is_available():
 dim = 2
 level = 2
 offset = 1
-softmax_truncate = 2
-frontier_interval = (0.05, 0.3)
+softmax_truncate = 1
+frontier_interval = (0.05, 0.25)
 
 training_size = 0.95
 Q = dim
