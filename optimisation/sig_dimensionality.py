@@ -1,12 +1,9 @@
 import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.ticker import MaxNLocator
 
 matplotlib.rcParams.update({'text.usetex' : True, 'font.size': 16, 'axes.labelsize': 16, 'legend.fontsize': 16, 'xtick.labelsize': 16, 'ytick.labelsize': 16})
-# sns.set(rc={'text.usetex' : True, 'font.size': 16, 'axes.labelsize': 16, 'legend.fontsize': 16, 'xtick.labelsize': 16, 'ytick.labelsize': 16})
-# sns.scatterplot(np.linspace(0,1,10))
 
 M_range = np.arange(1, 4)
 d_range = np.arange(1, 6)
@@ -16,7 +13,7 @@ for M in M_range:
     for d in d_range:
         sig_list.append(np.sum((2*(d+1))**np.arange(2*(M+1) + 1)))
     sig_range_list.append(np.array(sig_list))
-fig, ax = plt.subplots(1, figsize=(10, 5))
+fig, ax = plt.subplots(1, figsize=(10, 5), dpi=200)
 for M in M_range:
     ax.plot(d_range, sig_range_list[M-1], label=f'$M$={M}', linestyle='', marker='o', markersize=10)
 
