@@ -79,7 +79,6 @@ def shuffle_power(ell, power):
     """
     res = deepcopy(ell)
     for _ in range(power - 1):
-        # print(type(res))
         res = shuffleProduct(res, ell)
     return res
 
@@ -96,14 +95,12 @@ def shuffle_softmax(ells, truncate=5):
         for ell in ells:
             res = ell
             for i in range(2, truncate + 1):
-                # print(type(res))
                 res += shuffle_power(res, i) *(1/np.math.factorial(i))
             ells_.append(res)
         return ells_
     else:
         res = ells
         for i in range(2, truncate + 1):
-            # print(type(res))
             res += shuffle_power(res, i) *(1/np.math.factorial(i))
         return res
 
@@ -180,17 +177,8 @@ class _pre_get_funcs:
 class _get_funcs:
     def __init__(self,dim,level,ES_computer,truncate,transformation=None,*o,**kwarg):
         ell_coeffs  = [make_ell_coeffs(dim, level, "^" + str(i+1)) for i in range(dim)]
-        # print([i * c for i,c in enumerate(ell_coeffs)])
-        # print(ell_coeffs[0])
         ells        = [make_linear_functional(ell_coeff, dim, level) for ell_coeff in ell_coeffs]
-        # print(ells[0])
-        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        # print(ells[0], type(ells[0]))
-        # shuf = shuffleProduct(ells[0], ells[0])
-        # print(shuf, type(shuf))
-        # print(shuf*(.5))
-        # print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        # ells = [shuffle_softmax(ell, 2) for ell in tqdm(ells)]
+
         self.n_terms     = len(ell_coeffs[0])
         self.transformation = transformation
         if transformation:
@@ -199,18 +187,14 @@ class _get_funcs:
             self.shift = lambda i: i+1
 # Build the expected signature (from data, for now). normalise prices to start at 1
         esig    = ES_computer(2*(level+1),*o,**kwarg)
-        print("sigs")
         esig_ll = ES_computer(2*(level+1),*o,**kwarg,transformation=transformation)
-        print("SIGS")
         
 
         _get_funcs = _pre_get_funcs(dim,self.n_terms,ell_coeffs, truncate)
-        print("GET FUNCS")
         variance_function           = _get_funcs.set_signature_variance_func(ells, esig_ll, self.shift)
         return_function             = _get_funcs.set_signature_return_func(ells, esig_ll, self.shift)
         weight_sum_function         = _get_funcs.set_signature_weight_sum_func(ells, esig)
         individual_weights_function = _get_funcs.set_signature_individual_weight_func(ells, esig)
-        print("GOT FUNCS")
         self.funcs    = [variance_function, return_function, weight_sum_function, individual_weights_function]
 
 class ExpectedSignature():
@@ -448,51 +432,16 @@ class SignatureTrading:
         self.count += 1
 
         signatures_ = get_signature_values(self.normed_price[np.newaxis, :, :], self.level)
-        # f = self.funcs.funcs[3]
-        # f2 = self.funcs2.funcs[3]
 
         if ellstars_list:
             es_weights_list = []
-            f_weights_list = []
-            f2_weights_list = []
             for i in range(len(ellstars_list)):
                 es_weights_list.append(get_signature_weights(ellstars_list[i],signatures_, self.es.dim, self.funcs.n_terms))
-                # f_weights_list.append(f(ellstars_list[i]))
-                # f2_weights_list.append(f2(ellstars_list[i]))
-
-            # return es_weights_list, f_weights_list, f2_weights_list
             return es_weights_list
         else:
             es_weights = get_signature_weights(self.ellstars,signatures_, self.es.dim, self.funcs.n_terms)
-            # ell_coeffs = make_ell_coeffs(self.es.dim, self.level)
-            # ell_coeffs  = [make_ell_coeffs(self.es.dim, self.level, "^" + str(i+1)) for i in range(self.es.dim)]
-            # # print(len(ell_coeffs), len(self.ellstars))
-            # print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-            # # ell_coeffs2 = [self.ellstars[i] * ell_coeffs[i] for i in range(len(ell_coeffs))]
-            # ells2 = [make_linear_functional(ell_coeff, self.es.dim, self.level) for ell_coeff in ell_coeffs]
-            # ells3 = [shuffle_softmax(ell, self.truncate) for ell in ells2]
-            # # print(len(ells3))
-            # print(len(self.ellstars))
-            # individual_weights_polynomial_ = get_weights_ell(shuffle_softmax(ells3, self.truncate), signatures_)
-            # individual_weights_polynomial  = sym.lambdify([ell_coeffs], individual_weights_polynomial_)
-            # print("bweioafuiowafiouwafniowaf")
-            # @wrapper_factory(N_assets=self.es.dim, n_terms=self.es.n_terms)
-            # def individual_weights_function(a):
-            #     return individual_weights_polynomial(a)
-
-            # print(type(individual_weights_function(self.ellstars)))
-            # print("ionfqenweioaioaneaiofnwafnio")
-            # time.sleep(.1)
-            # w = f(self.ellstars)
-            # print("Expected:")
-            # print(w)
-            # print(w.sum())
-            # print("Old Real:")
-            # print(es_weights)
-            # print("Real:")
-            # return f2(self.ellstars)
             return es_weights
-    
+
 def trading_strategies(capital,weights,price,regularisation="ReLU"):
     """ Compute the number of shares to hold for each assets.
 

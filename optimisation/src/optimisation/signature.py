@@ -39,15 +39,13 @@ def ES(X, n_,use_gpu=0):
 
     else:
         sig_list = []
-        for i in tqdm(range(N)):
+        for i in range(N):
             sig_list.append(signatory.signature(X[i].unsqueeze(0), n_))
         # sigX  = signatory.signature(X, n_)
         sigX = torch.cat(sig_list, dim=0)
         mean_sigX = torch.mean(sigX, axis=0).cpu().numpy()
-        print(mean_sigX.shape)
+
         esigX = np.concatenate([empty_word, mean_sigX])
-        # esigX2 = np.array(empty_word + list(torch.mean(sigX, axis=0).cpu()))
-        # print(np.allclose(esigX, esigX2))
 
     return make_linear_functional(esigX, d, n_)
 
