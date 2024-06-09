@@ -36,7 +36,7 @@ def read_data(stocks, start_date, end_date, include_ffr=False):
     df2 = df[names].loc[(df.index >= pd.Timestamp(start_date)) & (df.index < pd.Timestamp(end_date))]
     df2.loc[:,'time'] = np.linspace(0, 1, len(df2))
 
-    ffr = pd.read_csv('./fedfunds.csv', index_col=0)
+    ffr = pd.read_csv('./data/fedfunds.csv', index_col=0)
     ffr.index = pd.to_datetime(ffr.index)
     ffr = ffr.loc[(ffr.index >= pd.Timestamp(start_date)) & (ffr.index < pd.Timestamp(end_date))]
 

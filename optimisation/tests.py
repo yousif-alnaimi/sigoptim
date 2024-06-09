@@ -6,7 +6,7 @@ from mv_utils import *
 
 N=2
 
-df      = pd.read_csv('./stocks.csv', index_col=0)
+df      = pd.read_csv('./data/stocks.csv', index_col=0)
 names   = df.columns[:N].to_list()
 # format needs to be specified as default parsing is American format
 df.index = pd.to_datetime(df.index, format="%d/%m/%y")

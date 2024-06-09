@@ -8,7 +8,7 @@ import datetime as dt
 matplotlib.rcParams.update({'text.usetex' : True, 'font.size': 16, 'axes.labelsize': 16, 'legend.fontsize': 16, 'xtick.labelsize': 16, 'ytick.labelsize': 16})
 
 N = 2
-df = pd.read_csv('./stocks.csv', index_col=0)
+df = pd.read_csv('./data/stocks.csv', index_col=0)
 df.index = pd.to_datetime(df.index, format="%d/%m/%y")
 names = df.columns[:N].to_list()
 df2 = df[names].loc[(df.index > pd.Timestamp('2017-01-01')) & (df.index < pd.Timestamp('2017-03-01'))]
