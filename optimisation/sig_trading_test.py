@@ -102,12 +102,24 @@ def sig_trading(gpm, df2, names, frontier_interval, level=2, sample_dict={2: 100
 
 def make_plots(pnl_list, var_list, relu_real_weights, names, filename=None):
     dim = len(names)
-    fig, axs = plt.subplots(2, figsize=(10, 10))
-    axs[0].plot(np.sqrt(np.array(var_list)), pnl_list)
+    fig, axs = plt.subplots(2, figsize=(10, 12), dpi=200)
+    axs[0].plot(np.sqrt(np.array(var_list)), pnl_list, label='Efficient Frontier')
+    axs[0].legend()
+    axs[0].set_xlabel('Standard Deviation of Return')
+    axs[0].set_ylabel('Expected Return')
+    axs[0].set_title('Sig-Trading Efficient Frontier')
+
     for i in range(dim):
         axs[1].plot(pnl_list, relu_real_weights[:,i],label=names[i])
     axs[1].set_ylim([0., 1.])
     axs[1].legend()
+    axs[1].set_xlabel('Expected Return')
+    axs[1].set_ylabel('Weights')
+    axs[1].set_title('Sig-Trading Portfolio Weights')
+
+    fig.suptitle(f'Sig-Trading Portfolio Optimisation with {names.join(", ")}')
+    fig.tight_layout()
+
     if filename:
         assert isinstance(filename, str)
         if filename.endswith('.png'):
@@ -115,7 +127,7 @@ def make_plots(pnl_list, var_list, relu_real_weights, names, filename=None):
         else:
             fig.savefig(filename + '.png')
     else:
-        fig.savefig('sig_trading.png')
+        fig.savefig(f'sig_trading_{names.join("_")}.png')
 
 
 def combine_all(dim=2, level=2, offset=1, start_date='2017-01-01', end_date='2018-01-01', include_ffr=False,
@@ -133,6 +145,9 @@ pnl_f, var_f, weight_f = combine_all(2, 2, 1, include_ffr=True, plot=True, filen
 
 fig, ax = plt.subplots(1, figsize=(10, 5), dpi=200)
 ax.plot(np.sqrt(np.array(var_n)), pnl_n, label='No FFR')
-ax.plot(np.sqrt(np.array(var_f)), pnl_f, label='With FFR', c='xkcd:baby blue')
+ax.plot(np.sqrt(np.array(var_f)), pnl_f, label='With FFR')
 ax.legend()
+ax.set_xlabel('Standard Deviation of Return')
+ax.set_ylabel('Expected Return')
+ax.set_title('Sig-Trading Efficient Frontier - Comparison with and without FFR')
 fig.savefig('sig_trading_comparison.png')
