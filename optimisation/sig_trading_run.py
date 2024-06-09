@@ -23,7 +23,7 @@ if torch.cuda.is_available():
 
 def read_data(stocks, start_date, end_date, include_ffr=False):
     # stocks
-    df      = pd.read_csv('./stocks.csv', index_col=0)
+    df      = pd.read_csv('./data/stocks.csv', index_col=0)
     if isinstance(stocks[0], str):
         names = stocks
     else:
@@ -149,8 +149,8 @@ def combine_all(stocks, level=2, start_date='2017-01-01', end_date='2018-01-01',
 # Choices are: AAPL, AXP, BA, CAT, CSCO, DIS, GS, HD, IBM, JPM, KO, MCD, MRK, UNH, WBA
 stocks = ["CSCO", "DIS"]
 
-pnl_n, var_n, weight_n = combine_all(stocks, include_ffr=False, plot=True)
-pnl_f, var_f, weight_f = combine_all(stocks, include_ffr=True, plot=True)
+pnl_n, var_n, weight_n = combine_all(stocks, include_ffr=False, plot=True, frontier_interval=(0.05, 0.2))
+pnl_f, var_f, weight_f = combine_all(stocks, include_ffr=True, plot=True, frontier_interval=(0.05, 0.2))
 
 fig, ax = plt.subplots(1, figsize=(10, 5), dpi=200)
 ax.plot(np.sqrt(np.array(var_n)), pnl_n, label='No FFR')
