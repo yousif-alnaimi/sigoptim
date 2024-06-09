@@ -42,11 +42,11 @@ def read_data(dim, offset, start_date, end_date, include_ffr=False):
     test["mult"] = (1. + test["FEDFUNDS"]/100.)**(test["days"]/365.)
     test["ffr"] = test["mult"].cumprod()
     test["ffr"].fillna(1., inplace=True)
-    df2['ffr'] = test["ffr"]
+    df2['FFR'] = test["ffr"]
 
     if include_ffr:
-        df2 = df2[['ffr'] + names + ['time']]
-        names = ['ffr'] + names
+        df2 = df2[['FFR'] + names + ['time']]
+        names = ['FFR'] + names
 
     return df2, names
 
@@ -100,7 +100,7 @@ def sig_trading(gpm, df2, names, frontier_interval, level=2, sample_dict={2: 100
     return pnl_list, var_list, relu_real_weights
 
 
-def make_plots(pnl_list, var_list, relu_real_weights, names):
+def make_plots(pnl_list, var_list, relu_real_weights, names, filename=None):
     dim = len(names)
     fig, axs = plt.subplots(2, figsize=(10, 10))
     axs[0].plot(np.sqrt(np.array(var_list)), pnl_list)
@@ -108,10 +108,31 @@ def make_plots(pnl_list, var_list, relu_real_weights, names):
         axs[1].plot(pnl_list, relu_real_weights[:,i],label=names[i])
     axs[1].set_ylim([0., 1.])
     axs[1].legend()
-    plt.show()
+    if filename:
+        assert isinstance(filename, str)
+        if filename.endswith('.png'):
+            fig.savefig(filename)
+        else:
+            fig.savefig(filename + '.png')
+    else:
+        fig.savefig('sig_trading.png')
 
 
-df2, names = read_data(dim=2, offset=1, start_date='2017-01-01', end_date='2018-01-01', include_ffr=True)
-gpm = make_gpm(df2, names, training_size=0.95, Q=2, init_method='BNSE', method='Adam')
-pnl_list, var_list, relu_real_weights = sig_trading(gpm, df2, names, level=2, frontier_interval=(0.05, 0.25))
-make_plots(pnl_list, var_list, relu_real_weights, names)
+def combine_all(dim=2, level=2, offset=1, start_date='2017-01-01', end_date='2018-01-01', include_ffr=False,
+                training_size=0.95, init_method='BNSE', method='Adam', frontier_interval=(0.05, 0.25), plot=True,
+                filename=None):
+    df2, names = read_data(dim=dim, offset=offset, start_date=start_date, end_date=end_date, include_ffr=include_ffr)
+    gpm = make_gpm(df2, names, training_size=training_size, Q=len(names), init_method=init_method, method=method)
+    pnl_list, var_list, relu_real_weights = sig_trading(gpm, df2, names, level=level, frontier_interval=frontier_interval)
+    if plot:
+        make_plots(pnl_list, var_list, relu_real_weights, names, filename=filename)
+    return pnl_list, var_list, relu_real_weights
+
+pnl_n, var_n, weight_n = combine_all(2, 2, 1, include_ffr=False, plot=True, filename='sig_trading_no_ffr.png')
+pnl_f, var_f, weight_f = combine_all(2, 2, 1, include_ffr=True, plot=True, filename='sig_trading_ffr.png')
+
+fig, ax = plt.subplots(1, figsize=(10, 5), dpi=200)
+ax.plot(np.sqrt(np.array(var_n)), pnl_n, label='No FFR')
+ax.plot(np.sqrt(np.array(var_f)), pnl_f, label='With FFR', c='xkcd:baby blue')
+ax.legend()
+fig.savefig('sig_trading_comparison.png')
