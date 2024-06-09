@@ -25,4 +25,4 @@ ax.set_title('Number of Signature Terms Against Number of Assets ($d$) for Diffe
 ax.legend(loc='upper left', title="Order of Signature")
 ax.set_ylim([1e2, 1e9])
 fig.tight_layout()
-fig.savefig('sig_dimensionality.png')
+fig.savefig('./plots/sig_dimensionality.png')

@@ -21,10 +21,15 @@ if torch.cuda.is_available():
    mogptk.use_gpu(0)
 
 
-def read_data(dim, offset, start_date, end_date, include_ffr=False):
+def read_data(stocks, start_date, end_date, include_ffr=False):
     # stocks
     df      = pd.read_csv('./stocks.csv', index_col=0)
-    names   = df.columns[offset:dim+offset].to_list()
+    if isinstance(stocks[0], str):
+        names = stocks
+    else:
+        dim = stocks[0]
+        offset = stocks[1]
+        names   = df.columns[offset:dim+offset].to_list()
     # format needs to be specified as default parsing is American format
     df.index = pd.to_datetime(df.index, format="%d/%m/%y")
 
@@ -117,31 +122,35 @@ def make_plots(pnl_list, var_list, relu_real_weights, names, filename=None):
     axs[1].set_ylabel('Weights')
     axs[1].set_title('Sig-Trading Portfolio Weights')
 
-    fig.suptitle(f'Sig-Trading Portfolio Optimisation with {names.join(", ")}')
+    fig.suptitle(f'Sig-Trading Portfolio Optimisation with {", ".join(names)}')
     fig.tight_layout()
 
     if filename:
         assert isinstance(filename, str)
         if filename.endswith('.png'):
-            fig.savefig(filename)
+            fig.savefig('./plots/' + filename)
         else:
-            fig.savefig(filename + '.png')
+            fig.savefig('./plots/' + filename + '.png')
     else:
-        fig.savefig(f'sig_trading_{names.join("_")}.png')
+        fig.savefig(f'./plots/sig_trading_{"_".join(names)}.png')
 
 
-def combine_all(dim=2, level=2, offset=1, start_date='2017-01-01', end_date='2018-01-01', include_ffr=False,
+def combine_all(stocks, level=2, start_date='2017-01-01', end_date='2018-01-01', include_ffr=False,
                 training_size=0.95, init_method='BNSE', method='Adam', frontier_interval=(0.05, 0.25), plot=True,
                 filename=None):
-    df2, names = read_data(dim=dim, offset=offset, start_date=start_date, end_date=end_date, include_ffr=include_ffr)
+    df2, names = read_data(stocks=stocks, start_date=start_date, end_date=end_date, include_ffr=include_ffr)
     gpm = make_gpm(df2, names, training_size=training_size, Q=len(names), init_method=init_method, method=method)
     pnl_list, var_list, relu_real_weights = sig_trading(gpm, df2, names, level=level, frontier_interval=frontier_interval)
     if plot:
         make_plots(pnl_list, var_list, relu_real_weights, names, filename=filename)
     return pnl_list, var_list, relu_real_weights
 
-pnl_n, var_n, weight_n = combine_all(2, 2, 1, include_ffr=False, plot=True, filename='sig_trading_no_ffr.png')
-pnl_f, var_f, weight_f = combine_all(2, 2, 1, include_ffr=True, plot=True, filename='sig_trading_ffr.png')
+
+# Choices are: AAPL, AXP, BA, CAT, CSCO, DIS, GS, HD, IBM, JPM, KO, MCD, MRK, UNH, WBA
+stocks = ["CSCO", "DIS"]
+
+pnl_n, var_n, weight_n = combine_all(stocks, include_ffr=False, plot=True)
+pnl_f, var_f, weight_f = combine_all(stocks, include_ffr=True, plot=True)
 
 fig, ax = plt.subplots(1, figsize=(10, 5), dpi=200)
 ax.plot(np.sqrt(np.array(var_n)), pnl_n, label='No FFR')
@@ -150,4 +159,4 @@ ax.legend()
 ax.set_xlabel('Standard Deviation of Return')
 ax.set_ylabel('Expected Return')
 ax.set_title('Sig-Trading Efficient Frontier - Comparison with and without FFR')
-fig.savefig('sig_trading_comparison.png')
+fig.savefig('./plots/sig_trading_comparison_' + '_'.join(stocks) + '.png')
