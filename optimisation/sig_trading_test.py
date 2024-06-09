@@ -111,7 +111,7 @@ def make_plots(pnl_list, var_list, relu_real_weights, names):
     plt.show()
 
 
-df2, names = read_data(dim=2, offset=1, start_date='2017-01-01', end_date='2018-01-01')
+df2, names = read_data(dim=2, offset=1, start_date='2017-01-01', end_date='2018-01-01', include_ffr=True)
 gpm = make_gpm(df2, names, training_size=0.95, Q=2, init_method='BNSE', method='Adam')
 pnl_list, var_list, relu_real_weights = sig_trading(gpm, df2, names, level=2, frontier_interval=(0.05, 0.25))
 make_plots(pnl_list, var_list, relu_real_weights, names)
