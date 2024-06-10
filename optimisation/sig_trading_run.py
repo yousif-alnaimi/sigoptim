@@ -79,7 +79,7 @@ def make_gpm(df2, names, training_size, Q, init_method, method):
     return gpm
 
 
-def sig_trading(gpm, df2, names, frontier_interval, level=2, sample_dict={2: 1000, 3:250, 4:10}, softmax_truncate=1):
+def sig_trading(gpm, df2, names, frontier_interval, level=2, sample_dict={2: 1000, 3:250, 4:25}, softmax_truncate=1):
     dim = len(names)
     start = time.time()
     transformation = _transformation(dim, 1, OrderedDict(
@@ -147,14 +147,18 @@ def combine_all(stocks, level=2, start_date='2017-01-01', end_date='2018-01-01',
 
 
 # Choices are: AAPL, AXP, BA, CAT, CSCO, DIS, GS, HD, IBM, JPM, KO, MCD, MRK, UNH, WBA
-stocks = ["CSCO", "DIS"]
+stocks = ["AXP", "BA", "CSCO"]
+interval = (0.05, 0.25)
+pnl_n, var_n, weight_n = combine_all(stocks[:2], include_ffr=False, plot=True, frontier_interval=interval)
+pnl_n2, var_n2, weight_n2 = combine_all(stocks, include_ffr=False, plot=True, frontier_interval=interval)
+pnl_f, var_f, weight_f = combine_all(stocks[:2], include_ffr=True, plot=True, frontier_interval=interval)
+pnl_f2, var_f2, weight_f2 = combine_all(stocks, include_ffr=True, plot=True, frontier_interval=interval)
 
-pnl_n, var_n, weight_n = combine_all(stocks, include_ffr=False, plot=True, frontier_interval=(0.05, 0.2))
-pnl_f, var_f, weight_f = combine_all(stocks, include_ffr=True, plot=True, frontier_interval=(0.05, 0.2))
-
-fig, ax = plt.subplots(1, figsize=(10, 5), dpi=200)
-ax.plot(np.sqrt(np.array(var_n)), pnl_n, label='No FFR')
-ax.plot(np.sqrt(np.array(var_f)), pnl_f, label='With FFR')
+fig, ax = plt.subplots(1, figsize=(20, 10), dpi=150)
+ax.plot(np.sqrt(np.array(var_n)), pnl_n, label=', '.join(stocks[:2]) + ' Without FFR')
+ax.plot(np.sqrt(np.array(var_f)), pnl_f, label=', '.join(stocks[:2]) + ' With FFR')
+ax.plot(np.sqrt(np.array(var_n2)), pnl_n2, label=', '.join(stocks) + ' Without FFR')
+ax.plot(np.sqrt(np.array(var_f2)), pnl_f2, label=', '.join(stocks) + ' With FFR')
 ax.legend()
 ax.set_xlabel('Standard Deviation of Return')
 ax.set_ylabel('Expected Return')
