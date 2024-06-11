@@ -148,7 +148,7 @@ def combine_all(stocks, level=2, start_date='2017-01-01', end_date='2018-01-01',
 
 # Choices are: AAPL, AXP, BA, CAT, CSCO, DIS, GS, HD, IBM, JPM, KO, MCD, MRK, UNH, WBA
 stocks = ["AXP", "IBM", "BA"]
-interval = (0.05, 0.2)
+interval = (0.05, 0.15)
 pnl_n, var_n, weight_n = combine_all(stocks[:2], include_ffr=False, plot=True, frontier_interval=interval)
 pnl_n2, var_n2, weight_n2 = combine_all(stocks, include_ffr=False, plot=True, frontier_interval=interval)
 pnl_f, var_f, weight_f = combine_all(stocks[:2], include_ffr=True, plot=True, frontier_interval=interval)
