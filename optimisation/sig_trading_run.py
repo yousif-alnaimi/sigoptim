@@ -10,6 +10,7 @@ import pandas as pd
 import warnings
 import matplotlib.pyplot as plt
 import matplotlib
+import pickle
 
 matplotlib.rcParams.update({'text.usetex' : True, 'font.size': 16, 'axes.labelsize': 16, 'legend.fontsize': 16, 'xtick.labelsize': 16, 'ytick.labelsize': 16})
 
@@ -155,7 +156,13 @@ pnl_n2, var_n2, weight_n2 = combine_all(stocks, include_ffr=False, plot=True, fr
 pnl_f, var_f, weight_f = combine_all(stocks[:2], include_ffr=True, plot=True, frontier_interval=interval)
 pnl_f2, var_f2, weight_f2 = combine_all(stocks, include_ffr=True, plot=True, frontier_interval=interval)
 
-fig, ax = plt.subplots(1, figsize=(20, 10), dpi=150)
+with open('sig_trading_comparison_' + '_'.join(stocks) + '.pkl', 'wb') as f:
+    pickle.dump([pnl_n, var_n, weight_n, pnl_n2, var_n2, weight_n2, pnl_f, var_f, weight_f, pnl_f2, var_f2, weight_f2], f)
+
+with open('sig_trading_comparison_' + '_'.join(stocks) + '.pkl', 'rb') as f:
+    pnl_n, var_n, weight_n, pnl_n2, var_n2, weight_n2, pnl_f, var_f, weight_f, pnl_f2, var_f2, weight_f2 = pickle.load(f)
+
+fig, ax = plt.subplots(1, figsize=(15, 8), dpi=150)
 ax.plot(np.sqrt(np.array(var_n)), pnl_n, label=', '.join(stocks[:2]) + ' Without FFR')
 ax.plot(np.sqrt(np.array(var_f)), pnl_f, label=', '.join(stocks[:2]) + ' With FFR')
 ax.plot(np.sqrt(np.array(var_n2)), pnl_n2, label=', '.join(stocks) + ' Without FFR')
@@ -165,3 +172,4 @@ ax.set_xlabel('Standard Deviation of Return')
 ax.set_ylabel('Expected Return')
 ax.set_title('Sig-Trading Efficient Frontier - Comparison with and without FFR')
 fig.savefig('./plots/sig_trading_comparison_' + '_'.join(stocks) + '.png')
+
