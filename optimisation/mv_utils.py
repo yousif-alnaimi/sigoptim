@@ -374,7 +374,3 @@ def subtract_first_row(paths: np.ndarray) -> np.ndarray:
     _, l, _ = paths.shape
 
     return paths - np.tile(np.expand_dims(paths[:, 0, :], 1), (1, l, 1))
-
-
-# print(np.array([[[1,2,3],[4,5,6],[7,8,9]],[[1,2,3],[4,5,6],[7,8,9]]]))
-# print(subtract_first_row(np.array([[[1,2,3, 4],[4,5,6, 4],[7,8,9, 4]],[[1,2,3, 5],[4,5,6,5],[7,8,9,5]]])))

@@ -1,21 +1,18 @@
 from src.signature_trading import SignatureTrading, GaussianProcessExpectedSiganture, _transformation, OriginalSignature
-# from src.optimisation.signature import *
 from collections import OrderedDict
 import time
-import signatory
 import mogptk
 import numpy as np
 import torch
 import pandas as pd
-import warnings
 import matplotlib.pyplot as plt
 import matplotlib
 import pickle
 
+# plot formatting
 matplotlib.rcParams.update({'text.usetex' : True, 'font.size': 16, 'axes.labelsize': 16, 'legend.fontsize': 16, 'xtick.labelsize': 16, 'ytick.labelsize': 16})
 
-# warnings.simplefilter("ignore")
-
+# set the device to cuda if available
 device = torch.device("cuda")
 
 if torch.cuda.is_available():
@@ -23,17 +20,17 @@ if torch.cuda.is_available():
 
 
 def read_data(stocks, start_date, end_date, include_ffr=False):
-    # stocks
-    df      = pd.read_csv('./data/stocks.csv', index_col=0)
-    if isinstance(stocks[0], str):
-        names = stocks
-    else:
-        dim = stocks[0]
-        offset = stocks[1]
-        names   = df.columns[offset:dim+offset].to_list()
+    """
+    Read the stock data and the federal funds rate data and return the combined dataframe.
+    """
+    # get stocks data
+    df = pd.read_csv('./data/stocks.csv', index_col=0)
+    names = stocks
+
     # format needs to be specified as default parsing is American format
     df.index = pd.to_datetime(df.index, format="%d/%m/%y")
 
+    # filter the data to the required date range and time augment
     df2 = df[names].loc[(df.index >= pd.Timestamp(start_date)) & (df.index < pd.Timestamp(end_date))]
     df2.loc[:,'time'] = np.linspace(0, 1, len(df2))
 
@@ -41,10 +38,13 @@ def read_data(stocks, start_date, end_date, include_ffr=False):
     ffr.index = pd.to_datetime(ffr.index)
     ffr = ffr.loc[(ffr.index >= pd.Timestamp(start_date)) & (ffr.index < pd.Timestamp(end_date))]
 
+    # reindex the ffr data to match the stock data
     test = ffr.reindex(df2.index, method='ffill')
     test["days1"] = test.index
     test["days2"] = test.index
     test["days"] = (test["days1"] - test["days2"].shift(1)).dt.days
+
+    # calculate multiplier for ffr on each day
     test["mult"] = (1. + test["FEDFUNDS"]/100.)**(test["days"]/365.)
     test["ffr"] = test["mult"].cumprod()
     test["ffr"].fillna(1., inplace=True)
@@ -58,10 +58,17 @@ def read_data(stocks, start_date, end_date, include_ffr=False):
 
 
 def relu_scale(x):
+    """
+    Implement the ReLU scaling function for the weights.
+    """
     new_x = np.maximum(x, 0)
     return new_x / new_x.sum()
 
 def make_gpm(df2, names, training_size, Q, init_method, method):
+    """
+    Function to make the Gaussian Process Model and train it.
+    """
+    # import as mogptk dataset
     gpm_dataset = mogptk.LoadDataFrame(df2, x_col='time', y_col=names)
 
     for channel in gpm_dataset:
@@ -81,11 +88,15 @@ def make_gpm(df2, names, training_size, Q, init_method, method):
 
 
 def sig_trading(gpm, df2, names, frontier_interval, level=2, sample_dict={2: 1000, 3:250, 4:25}, softmax_truncate=1):
+    """
+    Function to perform signature trading using the signature trading class.
+    """
     dim = len(names)
     start = time.time()
     transformation = _transformation(dim, 1, OrderedDict(
                     {"AddTime": True, "TranslatePaths": True, "ScalePaths": False, "LeadLag": False, "HoffLeadLag":True}))
         
+    # calculate expected signature paths
     es = GaussianProcessExpectedSiganture(gpm)
     es._get_paths(
         time_step=len(df2.index),
@@ -95,11 +106,13 @@ def sig_trading(gpm, df2, names, frontier_interval, level=2, sample_dict={2: 100
     print("Paths successfully generated. Signature trading now in progress...")
     sig = None
 
+    # run the signature trading  and get weights
     sig_trading = SignatureTrading(df2, es, sig, level, softmax_truncate)
     sig_trading._get_funcs(transformation)
     pnl_list, var_list, ellstars_list = sig_trading._get_coeffs(interval=frontier_interval, export_ellstars=True)
     real_weights = sig_trading.get_weights(sig_trading.data.loc[:,sig_trading.es.names].to_numpy(), interval=frontier_interval, ellstars_list=ellstars_list)
 
+    # run weights through relu scaling and return them
     relu_real_weights = np.array([relu_scale(w) for w in real_weights])
     print("Efficient frontier calculated. Time Taken:")
     print(time.time()-start)
@@ -107,14 +120,20 @@ def sig_trading(gpm, df2, names, frontier_interval, level=2, sample_dict={2: 100
 
 
 def make_plots(pnl_list, var_list, relu_real_weights, names, filename=None):
+    """
+    Function to make the plots for the efficient frontier and the portfolio weights.
+    """
     dim = len(names)
     fig, axs = plt.subplots(2, figsize=(10, 12), dpi=200)
+
+    # efficient frontier plot
     axs[0].plot(np.sqrt(np.array(var_list)), pnl_list, label='Efficient Frontier')
     axs[0].legend()
     axs[0].set_xlabel('Standard Deviation of Return')
     axs[0].set_ylabel('Expected Return')
     axs[0].set_title('Sig-Trading Efficient Frontier')
 
+    # portfolio weights plot
     for i in range(dim):
         axs[1].plot(pnl_list, relu_real_weights[:,i],label=names[i])
     axs[1].set_ylim([0., 1.])
@@ -123,6 +142,7 @@ def make_plots(pnl_list, var_list, relu_real_weights, names, filename=None):
     axs[1].set_ylabel('Weights')
     axs[1].set_title('Sig-Trading Portfolio Weights')
 
+    # formatting
     fig.suptitle(f'Sig-Trading Portfolio Optimisation with {", ".join(names)}')
     fig.tight_layout()
 
@@ -139,6 +159,9 @@ def make_plots(pnl_list, var_list, relu_real_weights, names, filename=None):
 def combine_all(stocks, level=2, start_date='2017-01-01', end_date='2018-01-01', include_ffr=False,
                 training_size=0.95, init_method='BNSE', method='Adam', frontier_interval=(0.05, 0.25), plot=True,
                 filename=None):
+    """
+    Function to combine all the functions and run the signature trading.
+    """
     df2, names = read_data(stocks=stocks, start_date=start_date, end_date=end_date, include_ffr=include_ffr)
     gpm = make_gpm(df2, names, training_size=training_size, Q=len(names), init_method=init_method, method=method)
     pnl_list, var_list, relu_real_weights = sig_trading(gpm, df2, names, level=level, frontier_interval=frontier_interval)
@@ -147,7 +170,9 @@ def combine_all(stocks, level=2, start_date='2017-01-01', end_date='2018-01-01',
     return pnl_list, var_list, relu_real_weights
 
 
+# Example usage - select the stocks and the interval for the efficient frontier
 # Choices are: AAPL, AXP, BA, CAT, CSCO, DIS, GS, HD, IBM, JPM, KO, MCD, MRK, UNH, WBA
+
 stocks = ["AXP", "IBM", "BA"]
 # stocks = ["JPM", "GS", "UNH"]
 interval = (0.05, 0.15)
@@ -156,12 +181,14 @@ pnl_n2, var_n2, weight_n2 = combine_all(stocks, include_ffr=False, plot=True, fr
 pnl_f, var_f, weight_f = combine_all(stocks[:2], include_ffr=True, plot=True, frontier_interval=interval)
 pnl_f2, var_f2, weight_f2 = combine_all(stocks, include_ffr=True, plot=True, frontier_interval=interval)
 
+# pickle to allow replotting without recalculating everything
 with open('sig_trading_comparison_' + '_'.join(stocks) + '.pkl', 'wb') as f:
     pickle.dump([pnl_n, var_n, weight_n, pnl_n2, var_n2, weight_n2, pnl_f, var_f, weight_f, pnl_f2, var_f2, weight_f2], f)
 
 with open('sig_trading_comparison_' + '_'.join(stocks) + '.pkl', 'rb') as f:
     pnl_n, var_n, weight_n, pnl_n2, var_n2, weight_n2, pnl_f, var_f, weight_f, pnl_f2, var_f2, weight_f2 = pickle.load(f)
 
+# plot the comparison plots
 fig, ax = plt.subplots(1, figsize=(15, 8), dpi=150)
 ax.plot(np.sqrt(np.array(var_n)), pnl_n, label=', '.join(stocks[:2]) + ' Without FFR')
 ax.plot(np.sqrt(np.array(var_f)), pnl_f, label=', '.join(stocks[:2]) + ' With FFR')

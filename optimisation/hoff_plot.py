@@ -5,19 +5,26 @@ from mv_utils import HoffLeadLag
 import pandas as pd
 import datetime as dt
 
+# plot formatting
 matplotlib.rcParams.update({'text.usetex' : True, 'font.size': 16, 'axes.labelsize': 16, 'legend.fontsize': 16, 'xtick.labelsize': 16, 'ytick.labelsize': 16})
 
+# get stock data into dataframes]
 N = 2
 df = pd.read_csv('./data/stocks.csv', index_col=0)
 df.index = pd.to_datetime(df.index, format="%d/%m/%y")
 names = df.columns[:N].to_list()
 df2 = df[names].loc[(df.index > pd.Timestamp('2017-01-01')) & (df.index < pd.Timestamp('2017-03-01'))]
+
+# time augment the data
 df2.loc[:,'time'] = np.linspace(0, 1, len(df2))
 df2 = df2[['time'] + names]
 
+# get the Hoff lead lag paths
 paths = np.expand_dims(df2.to_numpy(), 0)
 hoff_paths = HoffLeadLag(paths, True)
 
+
+# plot the original and Hoff lead lag paths nexto to each other
 fig, axs = plt.subplots(1,2, figsize=(10, 5), sharey=True, dpi=200)
 fig.suptitle(f"AAPL Stock Price from {dt.datetime.strftime(df2.index[0], r'%d/%m/%y')} to {dt.datetime.strftime(df2.index[-1], r'%d/%m/%y')}")
 axs[0].plot(df2['time'], df2[names[0]], label=names[0])

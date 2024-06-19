@@ -1,3 +1,12 @@
+# --------------------------------------------------------------------
+# This script is a test script for the faster implementation
+# of the signature trading strategy. This script is not used in the 
+# project as it cannot implement Hoff Lead Lag Paths, but is kept
+# for future reference.
+# --------------------------------------------------------------------
+
+
+
 import numba
 from numba import jit,njit
 import numpy as np

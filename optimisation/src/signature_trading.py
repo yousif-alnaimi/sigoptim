@@ -14,9 +14,6 @@ from .helper_functions.signature_helper_functions import get_signature_weights, 
 from tqdm import tqdm
 get_weights_ell = copy(get_weights)
 
-# The signature trading part is from Zacharia Issa. Please see the `mean-variacne.ipynb` file for detailed explanation.
-# This module merges the code into several classes and also integrate the Gaussian Process with Zach's code.
-
 # Shift operator
 def shift(i, d, lead_lag=False, add_time=False):
     """
