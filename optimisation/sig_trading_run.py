@@ -194,9 +194,10 @@ ax.plot(np.sqrt(np.array(var_n)), pnl_n, label=', '.join(stocks[:2]) + ' Without
 ax.plot(np.sqrt(np.array(var_f)), pnl_f, label=', '.join(stocks[:2]) + ' With FFR')
 ax.plot(np.sqrt(np.array(var_n2)), pnl_n2, label=', '.join(stocks) + ' Without FFR')
 ax.plot(np.sqrt(np.array(var_f2)), pnl_f2, label=', '.join(stocks) + ' With FFR')
+
+# ax.legend(loc='lower left', bbox_to_anchor=(0.5, 0.01)) # manual legend placement if necessary
 ax.legend()
 ax.set_xlabel('Standard Deviation of Return')
 ax.set_ylabel('Expected Return')
 ax.set_title('Sig-Trading Efficient Frontier - Comparison with and without FFR')
 fig.savefig('./plots/sig_trading_comparison_' + '_'.join(stocks) + '.png')
-
