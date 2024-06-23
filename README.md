@@ -5,9 +5,9 @@ This is the GitHub Repository that accompanies the paper titled "Enhancing Signa
 ## How to set up the environment
 
 To set up the environment, follow the following steps:
-- Create a new conda environment, with some starter packages by running `conda create -n m4r_signatory python=3.11 scipy seaborn jupyter pandas numba` and activate the environment.
+- Create a new conda environment, with some starter packages by running `conda create -n ENV_NAME python=3.11 scipy seaborn jupyter pandas numba` and activate the environment.
 - Then install torch with gpu by using `conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia`.
-- Then install pip-only libraries with `pip install mogptk==0.3.5 tqdm`.
+- Then install pip-only libraries with `pip install mogptk==0.3.5 tqdm iisignature`.
 - Then install signatory from source with:
 
 ```
