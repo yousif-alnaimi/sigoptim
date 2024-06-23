@@ -36,3 +36,5 @@ This is the main implementation concerning the paper. The `combine_all` function
 - `start_date` and `end_date` control the time period being tested. These are strings specifying dates as "YYYY-MM-DD".
 - `include_ffr` is a boolean flag to determine whether or not to include the bank account.
 - `frontier_interval` is a tuple indicating the range of expected returns to find the efficient frontier with.
+
+The plot making the comparison is written after this function. It can be commented out if all four combinations are not being tested.
